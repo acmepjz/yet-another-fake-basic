@@ -79,3 +79,25 @@ End Property
 Friend Property Get Handle() As Long
 Handle = m_hType
 End Property
+
+'TODO:
+Friend Sub CodegenDefaultConstructor(ByVal objContext As clsVerifyContext, ByVal hVariable As Long)
+Select Case m_nType
+Case vbByte, vbInteger, vbLong, vbBoolean
+ LLVMBuildStore g_hBuilder, LLVMConstInt(m_hType, 0@, 1), hVariable
+Case vbSingle, vbDouble
+ LLVMBuildStore g_hBuilder, LLVMConstReal(m_hType, 0#), hVariable
+End Select
+End Sub
+
+Friend Sub CodegenDefaultDestructor(ByVal objContext As clsVerifyContext, ByVal hVariable As Long)
+'TODO:
+End Sub
+
+Friend Sub CodegenCopyConstructor(ByVal objContext As clsVerifyContext, ByVal hVariable As Long, ByVal hValue As Long)
+'TODO:
+End Sub
+
+Friend Sub CodegenMoveConstructor(ByVal objContext As clsVerifyContext, ByVal hVariable As Long, ByVal hValue As Long)
+'TODO:
+End Sub

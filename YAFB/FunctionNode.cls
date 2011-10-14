@@ -45,7 +45,57 @@ Private m_objTable As New clsSymbolTable
 
 Private m_hFunctionType As Long
 Private m_hFunction As Long
+
+Private m_hFunctionVariableBlock As Long
 Private m_hFunctionEndBlock As Long
+
+Private Type typeFunctionTempVariable
+ hVariable As Long
+ objType As clsTypeNode
+ bUsed As Boolean
+End Type
+
+Private m_tTempVariable() As typeFunctionTempVariable '1-based
+Private m_nTempVarCount As Long
+
+Friend Function GetTempVariable(ByVal objContext As clsVerifyContext, ByVal objType As clsTypeNode) As Long
+Dim hBuilder As Long
+Dim i As Long
+'///
+For i = 1 To m_nTempVarCount
+ If Not m_tTempVariable(i).bUsed Then
+  If m_tTempVariable(i).objType Is objType Then
+   m_tTempVariable(i).bUsed = True
+   GetTempVariable = m_tTempVariable(i).hVariable
+   Exit Function
+  End If
+ End If
+Next i
+'///
+m_nTempVarCount = m_nTempVarCount + 1
+ReDim Preserve m_tTempVariable(1 To m_nTempVarCount)
+'///
+hBuilder = LLVMCreateBuilder
+LLVMPositionBuilderAtEnd hBuilder, m_hFunctionVariableBlock
+i = LLVMBuildAlloca(hBuilder, objType.Handle, StrPtr(StrConv("TempVariable", vbFromUnicode)))
+LLVMDisposeBuilder hBuilder
+'///
+Set m_tTempVariable(m_nTempVarCount).objType = objType
+m_tTempVariable(m_nTempVarCount).bUsed = True
+m_tTempVariable(m_nTempVarCount).hVariable = i
+GetTempVariable = i
+End Function
+
+Friend Sub ResetTempVariable(ByVal objContext As clsVerifyContext)
+Dim i As Long
+'///
+For i = 1 To m_nTempVarCount
+ If m_tTempVariable(i).bUsed Then
+  m_tTempVariable(i).objType.CodegenDefaultDestructor objContext, m_tTempVariable(i).hVariable
+  m_tTempVariable(i).bUsed = False
+ End If
+Next i
+End Sub
 
 Friend Property Get EndBlockHandle() As Long
 EndBlockHandle = m_hFunctionEndBlock
@@ -80,22 +130,29 @@ If (m_nType And &H100&) = 0 Then
  objNewContext.Clone objContext
  Set objNewContext.CurrentFunction = Me
  '///
- hBlock = LLVMAppendBasicBlock(m_hFunction, StrPtr(StrConv("entry", vbFromUnicode)))
- m_hFunctionEndBlock = LLVMAppendBasicBlock(m_hFunction, StrPtr(StrConv("end", vbFromUnicode)))
- LLVMPositionBuilderAtEnd g_hBuilder, hBlock
+ m_hFunctionVariableBlock = LLVMAppendBasicBlock(m_hFunction, StrPtr(StrConv("FunctionVariable", vbFromUnicode)))
+ hBlock = LLVMAppendBasicBlock(m_hFunction, StrPtr(StrConv("FunctionEntry", vbFromUnicode)))
+ m_hFunctionEndBlock = LLVMAppendBasicBlock(m_hFunction, StrPtr(StrConv("FunctionEnd", vbFromUnicode)))
  '///
+ LLVMPositionBuilderAtEnd g_hBuilder, m_hFunctionVariableBlock
  If Not m_objArgList Is Nothing Then
   m_objArgList.CodegenArgument m_hFunction
  End If
- '///
  m_objTable.Codegen objNewContext
+ '///
+ LLVMPositionBuilderAtEnd g_hBuilder, hBlock
  Set obj = m_objStatement
  obj.Codegen objNewContext, 0, 0, 0, 0
  '///
  LLVMBuildBr g_hBuilder, m_hFunctionEndBlock
+ '///
+ LLVMPositionBuilderAtEnd g_hBuilder, m_hFunctionVariableBlock
+ LLVMBuildBr g_hBuilder, hBlock
+ '///
  LLVMPositionBuilderAtEnd g_hBuilder, m_hFunctionEndBlock
  '///
- 'TODO: local variable destructor, etc.
+ m_objTable.CodegenDefaultDestructor objNewContext
+ 'TODO: etc.
  '///
  Select Case m_nType And &HF&
  Case 1, 2

@@ -145,12 +145,14 @@ End If
 nType1 = objType1.DataType
 '///
 Select Case nType1
-Case vbByte, vbInteger, vbLong
+Case vbByte, vbInteger
+ Set CheckUnaryOperator = g_objIntrinsicDataTypes(vbInteger)
+Case vbLong
  Set CheckUnaryOperator = g_objIntrinsicDataTypes(vbLong)
 Case vbBoolean
  Select Case nOperator
  Case token_minus
-  Set CheckUnaryOperator = g_objIntrinsicDataTypes(vbLong)
+  Set CheckUnaryOperator = g_objIntrinsicDataTypes(vbInteger)
  Case Else
   Set CheckUnaryOperator = objType1
  End Select
@@ -207,7 +209,7 @@ Case keyword_xor, keyword_or, keyword_and
  If nType1 = vbBoolean And nType2 = vbBoolean Then
   Set CheckBinaryOperator = objType1
  Else
-  Set CheckBinaryOperator = g_objIntrinsicDataTypes(vbLong)
+  Set CheckBinaryOperator = g_objIntrinsicDataTypes(vbLong) 'TODO: Byte, Integer, etc.
  End If
 Case token_gt, token_lt, token_ge, token_le, token_equal, token_ne
  Set CheckBinaryOperator = g_objIntrinsicDataTypes(vbBoolean)
@@ -218,18 +220,46 @@ Case token_and
  Set CheckBinaryOperator = g_objIntrinsicDataTypes(vbString)
 Case token_plus, token_minus, token_asterisk
  Select Case nType1
- Case vbSingle, vbDouble
+ Case vbSingle
+  Select Case nType2
+  Case vbByte, vbInteger, vbBoolean, vbSingle
+   Set CheckBinaryOperator = g_objIntrinsicDataTypes(vbSingle)
+  Case vbLong, vbDouble
+   Set CheckBinaryOperator = g_objIntrinsicDataTypes(vbDouble)
+  End Select
+ Case vbDouble
   Set CheckBinaryOperator = g_objIntrinsicDataTypes(vbDouble)
- Case Else
+ Case vbByte, vbInteger, vbBoolean
+  Select Case nType2
+  Case vbByte, vbInteger, vbBoolean
+   Set CheckBinaryOperator = g_objIntrinsicDataTypes(vbInteger)
+  Case vbLong
+   Set CheckBinaryOperator = g_objIntrinsicDataTypes(vbLong)
+  Case vbSingle
+   Set CheckBinaryOperator = g_objIntrinsicDataTypes(vbSingle)
+  Case vbDouble
+   Set CheckBinaryOperator = g_objIntrinsicDataTypes(vbDouble)
+  End Select
+ Case vbLong
   Select Case nType2
   Case vbSingle, vbDouble
    Set CheckBinaryOperator = g_objIntrinsicDataTypes(vbDouble)
-  Case Else
+  Case vbByte, vbInteger, vbBoolean, vbLong
    Set CheckBinaryOperator = g_objIntrinsicDataTypes(vbLong)
   End Select
  End Select
 Case token_backslash, keyword_mod
- Set CheckBinaryOperator = g_objIntrinsicDataTypes(vbLong)
+ Select Case nType1
+ Case vbByte, vbInteger, vbBoolean
+  Select Case nType2
+  Case vbByte, vbInteger, vbBoolean
+   Set CheckBinaryOperator = g_objIntrinsicDataTypes(vbInteger)
+  Case Else
+   Set CheckBinaryOperator = g_objIntrinsicDataTypes(vbLong)
+  End Select
+ Case Else
+  Set CheckBinaryOperator = g_objIntrinsicDataTypes(vbLong)
+ End Select
 Case token_slash, token_power
  Set CheckBinaryOperator = g_objIntrinsicDataTypes(vbDouble)
 End Select
