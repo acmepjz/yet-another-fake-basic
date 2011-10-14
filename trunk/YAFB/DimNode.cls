@@ -44,6 +44,15 @@ Private m_objDataType As DataTypeNode 'must not be Nothing
 Private m_hType As Long 'not exactly
 Private m_hVariable As Long
 
+Friend Sub CodegenDefaultDestructor(ByVal objContext As clsVerifyContext)
+If (m_nType And &HF0&) = &HF0& Then
+ 'function argument. TODO: ByVal String, reference count, etc.
+Else
+ 'TODO:array, etc.
+ m_objDataType.GetDataType.CodegenDefaultDestructor objContext, m_hVariable
+End If
+End Sub
+
 Friend Function CodegenType() As Long
 Dim i As Long
 '///
@@ -76,6 +85,7 @@ End If
 If Not objContext.CurrentFunction Is Nothing Then
  '///local variable
  m_hVariable = LLVMBuildAlloca(g_hBuilder, m_hType, ByVal StrPtr(StrConv(m_t.sValue, vbFromUnicode)))
+ m_objDataType.GetDataType.CodegenDefaultConstructor objContext, m_hVariable
 ElseIf objContext.Module.FileType = 0 Then
  '///global variable
  m_hVariable = LLVMAddGlobal(g_hModule, m_hType, ByVal StrPtr(StrConv(m_t.sValue, vbFromUnicode)))

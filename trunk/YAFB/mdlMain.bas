@@ -176,7 +176,7 @@ g_nOptimizeLevel = LLVMCodeGenOpt_Default
 '///
 If App.LogMode <> 1 Then
  'test only
- GetArgv "-c " + App.Path + "\Test\HelloWorld.bas"
+ GetArgv "-c " + App.Path + "\Test\HelloWorld2.bas"
  PatchExe Argv(0)
  '///
  Exit Sub
@@ -248,10 +248,10 @@ End If
 Set g_objGlobalTable = New clsSymbolTable
 '///
 SetupRuntimeLibrary
-'///test
+'///parse
 For Each v In g_objFiles
  Set objFile = v
- Puts "Compiling " + objFile.FileName + vbCrLf
+ Puts "Parsing " + objFile.FileName + vbCrLf
  With New clsSrcParser
   g_objParser.Add .This '??
   If Not .ParseFile(objFile) Then g_bErr = True
@@ -304,6 +304,7 @@ i = 0
 j = LLVMVerifyModule(g_hModule, LLVMPrintMessageAction, i)
 If i Then LLVMDisposeMessage i
 '///
+RunOptimization
 If g_bEmitLLVM Then
  GenerateLLVMFile
 Else
@@ -335,11 +336,9 @@ For Each v In g_objParser
 Next v
 End Sub
 
-'TEST ONLY
-Public Sub GenerateLLVMFile()
+Public Sub RunOptimization()
 Dim hFunction As Long
 Dim hPass As Long
-Dim hStream As Long, hRawStream As Long
 '///
 If g_nOptimizeLevel > 0 Then
  hPass = LLVMCreateFunctionPassManagerForModule(g_hModule)
@@ -357,6 +356,13 @@ If g_nOptimizeLevel > 0 Then
  '///
  LLVMDisposePassManager hPass
 End If
+End Sub
+
+'TEST ONLY
+Public Sub GenerateLLVMFile()
+Dim hPass As Long
+Dim hStream As Long, hRawStream As Long
+'///
 If g_bAssemble Then
  LLVMWriteBitcodeToFile g_hModule, StrPtr(StrConv(App.Path + "\test.bc", vbFromUnicode))
 Else

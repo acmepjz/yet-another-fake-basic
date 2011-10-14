@@ -186,17 +186,22 @@ Loop
 ParseFile = g_tToken.nType < 0
 End Function
 
-'nEndType:
+'///nEndType:
 '0=sub
 '1=function
 '2=property get
 '3=property let
 '4=property set
-'and node_XXX etc.
-Friend Function ParseStatementList(ByVal objFile As ISource, ByVal nEndType As Long, Optional ByVal ForVariable As String, Optional ByVal objFunction As FunctionNode) As StatementListNode
+'///and node_XXX etc.
+'node_ifstate   -- xx:xx:xx {else}|{vbCrLf}
+'node_ifblock   -- end with {else}|{elseif}|{end}{if} <-- nFlagsReturn=1 means {end}{if}
+'node_elseblock -- end with {end}{if}
+Friend Function ParseStatementList(ByVal objFile As ISource, ByVal nEndType As Long, Optional ByVal ForVariable As String, Optional ByVal objFunction As FunctionNode, Optional ByRef nFlagsReturn As Long) As StatementListNode
 Dim objList As New StatementListNode
 Dim obj As IASTNode
 Dim objVariable As VariableNode
+'///
+nFlagsReturn = 0
 '///
 Do
  Select Case g_tToken.nType
@@ -240,10 +245,35 @@ Do
    End If
    If Not GetNextToken(objFile, g_tToken) Then Exit Function
    Exit Do
+  Case keyword_if
+   If nEndType <> node_ifblock And nEndType <> node_elseblock Then
+    PrintError "'End If' without 'If'"
+    Exit Function
+   End If
+   If Not GetNextToken(objFile, g_tToken) Then Exit Function
+   nFlagsReturn = 1
+   Exit Do
   Case Else
    PrintError "Currently unsupported 'End'"
    Exit Function
   End Select
+ Case keyword_if
+  If Not GetNextToken(objFile, g_tToken) Then Exit Function
+  Set obj = ParseIf(objFile, objFunction)
+  If obj Is Nothing Then Exit Function
+  objList.AddSubNode obj
+ Case keyword_else
+  If nEndType <> node_ifstat And nEndType <> node_ifblock Then
+   PrintError "'Else' without 'If'"
+   Exit Function
+  End If
+  Exit Do
+ Case keyword_elseif
+  If nEndType <> node_ifblock Then
+   PrintError "'ElseIf' without 'If'"
+   Exit Function
+  End If
+  Exit Do
  Case keyword_let
   If Not GetNextToken(objFile, g_tToken) Then Exit Function
   Set obj = ParseMake(objFile, 0, Nothing)
@@ -287,8 +317,20 @@ Do
   Exit Function
  End Select
  '///
- 'TODO:if statement, etc.
- If Not ParseEndOfLine(objFile) Then Exit Function
+ If nEndType = node_ifstat Then
+  'if statement, etc.
+  Select Case g_tToken.nType
+  Case token_colon
+   If Not GetNextToken(objFile, g_tToken) Then Exit Function
+  Case token_crlf, token_eof, keyword_else
+   Exit Do
+  Case Else
+   PrintError "':' or 'Else' or end of line expected"
+   Exit Function
+  End Select
+ Else
+  If Not ParseEndOfLine(objFile) Then Exit Function
+ End If
 Loop
 '///
 Set ParseStatementList = objList
@@ -314,6 +356,94 @@ If RHS Is Nothing Then Exit Function
 '///
 obj.Create nFlags, LHS, RHS
 Set ParseMake = obj
+End Function
+
+'<ifstat>:{if}<exp>{then}<ifstatlist>@1@|{if}<exp>{then}<ifstatlist>{else}<ifstatlist>@1@|{if}<exp>{then}{else}<ifstatlist>@1@
+'<ifblock>:{if}<exp>{then}<br><statlist><elseifblock>*<elseblock>?{end}{if}
+'<elseifblock>:({elseif}|{else}{if})<exp>{then}<br><statlist>
+'<elseblock>:|{else}<br><statlist>
+Friend Function ParseIf(ByVal objFile As ISource, ByVal objFunction As FunctionNode) As IASTNode
+Dim obj As New IfStatementNode
+Dim objCondition As IASTNode
+Dim objThen As StatementListNode
+Dim objElse As StatementListNode
+Dim nFlags As Long
+'///
+Set objCondition = ParseExpression(objFile)
+If objCondition Is Nothing Then Exit Function
+'///
+If g_tToken.nType <> keyword_then Then
+ PrintError "'Then' expected"
+ Exit Function
+End If
+If Not GetNextToken(objFile, g_tToken) Then Exit Function
+'///now check it's single-line statement or blocked statement
+Select Case g_tToken.nType
+Case token_eof
+ PrintError "Unexpected end of file"
+ Exit Function
+Case token_colon, token_crlf
+ '///blocked statement
+ If Not GetNextToken(objFile, g_tToken) Then Exit Function
+ '///
+ Do
+  Set objThen = ParseStatementList(objFile, node_ifblock, , objFunction, nFlags)
+  If objThen Is Nothing Then Exit Function
+  '///
+  obj.AddThenBlock objCondition, objThen
+  '///check if it's End If
+  If nFlags = 1 Then Exit Do
+  '///
+  Select Case g_tToken.nType
+  Case keyword_else
+   If Not GetNextToken(objFile, g_tToken) Then Exit Function
+   If Not ParseEndOfLine(objFile) Then Exit Function
+   Set objElse = ParseStatementList(objFile, node_elseblock, , objFunction, nFlags)
+   If objElse Is Nothing Then Exit Function
+   If nFlags <> 1 Then
+    PrintError "'End If' expected"
+    Exit Function
+   End If
+   Set obj.ElseBlock = objElse
+   Exit Do
+  Case keyword_elseif
+   If Not GetNextToken(objFile, g_tToken) Then Exit Function
+   Set objCondition = ParseExpression(objFile)
+   If objCondition Is Nothing Then Exit Function
+   '///
+   If g_tToken.nType <> keyword_then Then
+    PrintError "'Then' expected"
+    Exit Function
+   End If
+   If Not GetNextToken(objFile, g_tToken) Then Exit Function
+   '///
+   If Not ParseEndOfLine(objFile) Then Exit Function
+  Case Else
+   PrintError "'Else' or 'ElseIf' expected"
+   Exit Function
+  End Select
+ Loop
+Case Else
+ '///single-line statement
+ Set objThen = ParseStatementList(objFile, node_ifstat, , objFunction)
+ If objThen Is Nothing Then Exit Function
+ '///
+ Select Case g_tToken.nType
+ Case token_crlf, token_eof
+ Case keyword_else
+  If Not GetNextToken(objFile, g_tToken) Then Exit Function
+  Set objElse = ParseStatementList(objFile, node_ifstat, , objFunction)
+  If objElse Is Nothing Then Exit Function
+ Case Else
+  PrintError "':' or 'Else' or end of line expected"
+  Exit Function
+ End Select
+ '///over
+ obj.AddThenBlock objCondition, objThen
+ Set obj.ElseBlock = objElse
+End Select
+'///
+Set ParseIf = obj
 End Function
 
 Friend Function ParseCall(ByVal objFile As ISource, ByVal nFlags As Long, ByVal LHS As VariableNode) As IASTNode

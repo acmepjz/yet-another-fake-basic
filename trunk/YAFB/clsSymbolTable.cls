@@ -50,3 +50,14 @@ For Each v In m_objVariable
  objVariable.CodegenVariable objContext
 Next v
 End Sub
+
+Friend Sub CodegenDefaultDestructor(ByVal objContext As clsVerifyContext)
+Dim v As Variant
+Dim objVariable As DimNode
+'///
+For Each v In m_objVariable
+ Set objVariable = v
+ objVariable.CodegenDefaultDestructor objContext
+Next v
+End Sub
+

@@ -117,12 +117,14 @@ If objContext.Phase = verify_all Then
  'TODO:array,etc.
  '///if it's function call then verify argument
  If Not objFunction Is Nothing Then
-  Select Case objFunction.FuncType And &HF&
-  Case 1, 2
-  Case Else
-   PrintError "'" + m_t.sValue + "' is not Function or Property Get, it doesn't have return value", m_t.nLine, m_t.nColumn
-   Exit Function
-  End Select
+  If Not bIsCall Then
+   Select Case objFunction.FuncType And &HF&
+   Case 1, 2
+   Case Else
+    PrintError "'" + m_t.sValue + "' is not Function or Property Get, it doesn't have return value", m_t.nLine, m_t.nColumn
+    Exit Function
+   End Select
+  End If
   '///
   Set objArgDeclareList = objFunction.ArgumentDeclareList
   '///
@@ -272,10 +274,16 @@ If Not m_objFunction Is Nothing Then
      If objVar1 Is Nothing Then
       '///create a temp variable TODO: should reuse temp variable because LLVM can't optimize it
       h = obj.Codegen(objContext, 0, 0, 0, 0)
-      h = g_objTypeMgr.CodegenTypeConversion(h, objSrcType, nSrcFlags, objDestType, nDestFlags, False)
-      j = LLVMBuildAlloca(g_hBuilder, objDestType.Handle, StrPtr(StrConv("TempVariable", vbFromUnicode)))
-      LLVMBuildStore g_hBuilder, h, j
-      hArguments(i) = j
+      If objDestType.DataType = vbEmpty Then 'Any
+       j = objContext.CurrentFunction.GetTempVariable(objContext, objSrcType)
+       LLVMBuildStore g_hBuilder, h, j
+       hArguments(i) = LLVMBuildPointerCast(g_hBuilder, j, LLVMPointerType(objDestType.Handle, 0), StrPtr(StrConv("ByRefTemp", vbFromUnicode)))
+      Else
+       h = g_objTypeMgr.CodegenTypeConversion(h, objSrcType, nSrcFlags, objDestType, nDestFlags, False)
+       j = objContext.CurrentFunction.GetTempVariable(objContext, objDestType)
+       LLVMBuildStore g_hBuilder, h, j
+       hArguments(i) = j
+      End If
      Else
       '///get address of variable
       h = objVar1.CodegenEx(objContext, True)
@@ -295,8 +303,15 @@ If Not m_objFunction Is Nothing Then
  End If
  '///over, call the function
  h = m_objFunction.FunctionHandle
- i = LLVMBuildCall(g_hBuilder, h, hArguments(1), m, StrPtr(StrConv("CallTemp", vbFromUnicode)))
+ Select Case m_objFunction.FuncType And &HF&
+ Case 1, 2
+  i = LLVMBuildCall(g_hBuilder, h, hArguments(1), m, StrPtr(StrConv("CallTemp", vbFromUnicode)))
+ Case Else
+  'weird LLVM behavior: if it's Sub then it can't have a name
+  i = LLVMBuildCall(g_hBuilder, h, hArguments(1), m, StrPtr(vbNullChar))
+ End Select
  LLVMSetInstructionCallConv i, LLVMGetFunctionCallConv(h)
+ objContext.CurrentFunction.ResetTempVariable objContext
  CodegenEx = i
 End If
 End Function

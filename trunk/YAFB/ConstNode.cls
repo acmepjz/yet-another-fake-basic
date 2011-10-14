@@ -51,7 +51,7 @@ If m_hType = 0 And m_hConst = 0 Then
  Select Case m_t.nType
  Case token_decnum, token_hexnum, token_octnum
   Err.Clear
-  m_hType = LLVMInt32Type
+  m_hType = LLVMInt32Type '??? TODO: Byte, Integer and Long
   Set m_objType = g_objIntrinsicDataTypes(vbLong)
   m_hConst = LLVMConstInt(m_hType, CCur(Val(m_t.sValue)) * 0.0001@, 1)
   If m_hConst = 0 Or Err.Number <> 0 Then
