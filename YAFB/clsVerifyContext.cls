@@ -17,6 +17,27 @@ Private m_nPhase As enumASTNodeVerifyStep
 Private m_objModule As clsSrcParser
 Private m_objFunction As FunctionNode
 
+Private m_objScope() As IASTNode '1-based
+Private m_nScopeCount As Long
+
+Friend Sub AddScope(ByVal obj As IASTNode)
+m_nScopeCount = m_nScopeCount + 1
+ReDim Preserve m_objScope(1 To m_nScopeCount)
+Set m_objScope(m_nScopeCount) = obj
+End Sub
+
+Friend Sub RemoveScope()
+If m_nScopeCount > 0 Then
+ Set m_objScope(m_nScopeCount) = Nothing
+ m_nScopeCount = m_nScopeCount - 1
+End If
+End Sub
+
+Friend Sub ClearScope()
+Erase m_objScope
+m_nScopeCount = 0
+End Sub
+
 Friend Property Get Phase() As enumASTNodeVerifyStep
 Phase = m_nPhase
 End Property
@@ -41,6 +62,7 @@ Friend Property Set CurrentFunction(ByVal obj As FunctionNode)
 Set m_objFunction = obj
 End Property
 
+'doesn't copy m_objScope
 Friend Sub Clone(ByVal objSrc As clsVerifyContext)
 m_nPhase = objSrc.Phase
 Set m_objModule = objSrc.Module

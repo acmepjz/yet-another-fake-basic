@@ -20,6 +20,26 @@ Implements IASTNode
 Private m_objSubNode() As ArrayOrFuncNode '1-based
 Private m_nCount As Long
 
+Friend Property Get SubNodeCount() As Long
+SubNodeCount = m_nCount
+End Property
+
+Friend Property Get SubNode(ByVal nIndex As Long) As ArrayOrFuncNode
+Set SubNode = m_objSubNode(nIndex)
+End Property
+
+Friend Function IsSameVariable(ByVal obj As VariableNode) As Boolean
+Dim i As Long
+'///
+If m_nCount <> obj.SubNodeCount Then Exit Function
+'///
+For i = 1 To m_nCount
+ If Not m_objSubNode(i).IsSameVariable(obj.SubNode(i)) Then Exit Function
+Next i
+'///
+IsSameVariable = True
+End Function
+
 'TODO:
 Private Function IASTNode_GetType(nFlags As Long) As clsTypeNode
 Dim obj As IASTNode

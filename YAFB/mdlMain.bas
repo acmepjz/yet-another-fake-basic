@@ -36,6 +36,8 @@ Public g_nErrors As Long, g_nWarnings As Long
 
 Public g_hModule As Long, g_hBuilder As Long
 
+Public g_hTargetData As Long
+
 Public Sub Puts(ByVal s As String)
 Dim i As Long
 If hStdErr Then
@@ -286,15 +288,19 @@ End If
 '///
 Puts "Generating code..." + vbCrLf
 '================================ LLVM ================================
-If Not g_bEmitLLVM Then
- LLVMInitializeX86TargetInfo
- LLVMInitializeNativeTarget
- LLVMInitializeAllAsmPrinters
- LLVMInitializeAllAsmParsers
-End If
+LLVMInitializeX86TargetInfo
+LLVMInitializeNativeTarget
+LLVMInitializeAllAsmPrinters
+LLVMInitializeAllAsmParsers
 '///
 g_hModule = LLVMModuleCreateWithName(StrPtr(StrConv("Module1", vbFromUnicode)))
 g_hBuilder = LLVMCreateBuilder
+'///
+s = StrConv("i686-pc-mingw32", vbFromUnicode)
+i = StrPtr(s)
+g_hTargetData = LLVMCreateTargetData(i)
+LLVMSetTarget g_hModule, i
+LLVMSetDataLayout g_hModule, i
 '///
 SetupRuntimeLibraryFunctions
 '///
@@ -311,6 +317,7 @@ Else
  GenerateObjectFile
 End If
 '///
+LLVMDisposeTargetData g_hTargetData
 LLVMDisposeBuilder g_hBuilder
 LLVMDisposeModule g_hModule
 '///over
@@ -339,9 +346,12 @@ End Sub
 Public Sub RunOptimization()
 Dim hFunction As Long
 Dim hPass As Long
+Dim nThreshold As Long
 '///
 If g_nOptimizeLevel > 0 Then
+ '///function pass manager
  hPass = LLVMCreateFunctionPassManagerForModule(g_hModule)
+ LLVMAddTargetData g_hTargetData, hPass
  LLVMCreateStandardFunctionPasses hPass, g_nOptimizeLevel
  '///
  LLVMInitializeFunctionPassManager hPass
@@ -353,6 +363,25 @@ If g_nOptimizeLevel > 0 Then
   hFunction = LLVMGetNextFunction(hFunction)
  Loop
  LLVMFinalizeFunctionPassManager hPass
+ '///
+ LLVMDisposePassManager hPass
+ '///module pass manager
+ Select Case g_nOptimizeLevel
+ Case LLVMCodeGenOpt_None
+  nThreshold = 0
+ Case LLVMCodeGenOpt_Less
+  nThreshold = 200
+ Case Else
+  nThreshold = 250
+ End Select
+ '///
+ hPass = LLVMCreatePassManager
+ LLVMAddTargetData g_hTargetData, hPass
+ LLVMCreateStandardModulePasses hPass, g_nOptimizeLevel, _
+ (g_nOptimizeLevel = LLVMCodeGenOpt_Less) And 1&, 1, _
+ (g_nOptimizeLevel >= LLVMCodeGenOpt_Default) And 1&, 1, 0, nThreshold
+ '///
+ LLVMRunPassManager hPass, g_hModule
  '///
  LLVMDisposePassManager hPass
 End If
@@ -367,6 +396,7 @@ If g_bAssemble Then
  LLVMWriteBitcodeToFile g_hModule, StrPtr(StrConv(App.Path + "\test.bc", vbFromUnicode))
 Else
  hPass = LLVMCreatePassManager
+ LLVMAddTargetData g_hTargetData, hPass
  hStream = Util_CreateOStreamFromFile(App.Path + "\test.ll", LLVMOpenMode_out)
  hRawStream = LLVMCreateRaw_OS_OStream(hStream)
  LLVMAddPrintModulePass hPass, hRawStream, 0, vbNullChar
@@ -396,30 +426,33 @@ End If
 hRawStream = LLVMCreateRaw_OS_OStream(hStream)
 hRawStream = LLVMCreateFormattedRawOStream(hRawStream, 1)
 '///
-hPass = LLVMCreateFunctionPassManagerForModule(g_hModule)
+'hPass = LLVMCreateFunctionPassManagerForModule(g_hModule)
+hPass = LLVMCreatePassManager
+LLVMAddTargetData g_hTargetData, hPass
 hTargetMachine = LLVMCreateTargetMachine("i686-pc-mingw32", "i686,mmx,sse,sse2,sse3")
 If hTargetMachine Then
- If LLVMTargetMachineAddPassesToEmitFile(hTargetMachine, hPass, hRawStream, nType, g_nOptimizeLevel, 0) = 0 Then
-  LLVMInitializeFunctionPassManager hPass
-  hFunction = LLVMGetFirstFunction(g_hModule)
-  Do Until hFunction = 0
-'   lp = LLVMGetValueName(hFunction)
-'   If lp Then
-'    s = Space(8)
-'    CopyMemory ByVal StrPtr(s), ByVal lp, 16&
-'    lp = InStrB(1, s, ChrB(0))
-'    If lp > 0 Then s = LeftB(s, lp - 1)
-'    s = StrConv(s, vbUnicode)
-'    lp = s = "" Or IsNumeric(s)
-'   End If
-'   If lp = 0 Then
-    If LLVMCountBasicBlocks(hFunction) > 0 Then
-     LLVMRunFunctionPassManager hPass, hFunction
-    End If
-'   End If
-   hFunction = LLVMGetNextFunction(hFunction)
-  Loop
-  LLVMFinalizeFunctionPassManager hPass
+ If LLVMTargetMachineAddPassesToEmitFile(hTargetMachine, hPass, hRawStream, nType, LLVMCodeGenOpt_Aggressive, 0) = 0 Then
+'  LLVMInitializeFunctionPassManager hPass
+'  hFunction = LLVMGetFirstFunction(g_hModule)
+'  Do Until hFunction = 0
+''   lp = LLVMGetValueName(hFunction)
+''   If lp Then
+''    s = Space(8)
+''    CopyMemory ByVal StrPtr(s), ByVal lp, 16&
+''    lp = InStrB(1, s, ChrB(0))
+''    If lp > 0 Then s = LeftB(s, lp - 1)
+''    s = StrConv(s, vbUnicode)
+''    lp = s = "" Or IsNumeric(s)
+''   End If
+''   If lp = 0 Then
+'    If LLVMCountBasicBlocks(hFunction) > 0 Then
+'     LLVMRunFunctionPassManager hPass, hFunction
+'    End If
+''   End If
+'   hFunction = LLVMGetNextFunction(hFunction)
+'  Loop
+'  LLVMFinalizeFunctionPassManager hPass
+  LLVMRunPassManager hPass, g_hModule
  Else
   PrintError "Can't add code generation pass", -1, -1
  End If
