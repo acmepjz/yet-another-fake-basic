@@ -282,15 +282,15 @@ Case token_gt, token_lt, token_ge, token_le, token_equal, token_ne
  Case vbSingle, vbDouble
   Select Case nOperator
   Case token_gt
-   i = LLVMRealUGT
+   i = LLVMRealOGT
   Case token_lt
-   i = LLVMRealULT
+   i = LLVMRealOLT
   Case token_ge
-   i = LLVMRealUGE
+   i = LLVMRealOGE
   Case token_le
-   i = LLVMRealULE
+   i = LLVMRealOLE
   Case token_equal
-   i = LLVMRealUEQ
+   i = LLVMRealOEQ
   Case token_ne
    i = LLVMRealUNE
   End Select
@@ -323,7 +323,9 @@ Case token_gt, token_lt, token_ge, token_le, token_equal, token_ne
   End If
  End Select
  '///
- If bIsConstant Then
+ If objDestType Is Nothing Then
+  CodegenBinaryOperator = hValue1
+ ElseIf bIsConstant Then
   CodegenBinaryOperator = LLVMConstSExt(hValue1, objDestType.Handle)
  Else
   CodegenBinaryOperator = LLVMBuildSExt(g_hBuilder, hValue1, objDestType.Handle, StrPtr(StrConv("CmpTemp", vbFromUnicode)))

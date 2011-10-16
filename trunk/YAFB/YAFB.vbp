@@ -29,6 +29,7 @@ Class=clsVerifyContext; clsVerifyContext.cls
 Module=mdlRuntimeLibrary; mdlRuntimeLibrary.bas
 Class=clsTypeManager; clsTypeManager.cls
 Class=IfStatementNode; IfStatementNode.cls
+Class=ForStatementNode; ForStatementNode.cls
 Startup="Sub Main"
 HelpFile=""
 Title="YAFB"

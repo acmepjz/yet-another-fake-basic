@@ -29,6 +29,25 @@ Private m_nCount As Long
 Private m_objVariable As DimNode
 Private m_objFunction As FunctionNode
 
+Friend Function IsSameVariable(ByVal obj As ArrayOrFuncNode) As Boolean
+Dim t As typeToken
+'///
+obj.GetToken t
+If m_t.sValue <> t.sValue Then Exit Function
+If m_t.nFlags2 <> t.nFlags2 Then Exit Function
+'///
+If m_nCount <> obj.ArgListCount Then Exit Function
+'///
+'TODO:
+If m_nCount > 0 Then Exit Function
+'///
+IsSameVariable = True
+End Function
+
+Friend Property Get ArgListCount() As Long
+ArgListCount = m_nCount
+End Property
+
 'TODO:
 Private Function IASTNode_GetType(nFlags As Long) As clsTypeNode
 Dim obj As IASTNode
@@ -51,6 +70,10 @@ End Property
 Friend Property Get This() As IASTNode
 Set This = Me
 End Property
+
+Friend Sub GetToken(ByRef t As typeToken)
+t = m_t
+End Sub
 
 '1=id begin with "."
 Friend Sub SetToken(ByVal nFlags2 As Long)

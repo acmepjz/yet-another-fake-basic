@@ -193,10 +193,11 @@ End Function
 '3=property let
 '4=property set
 '///and node_XXX etc.
-'node_ifstate   -- xx:xx:xx {else}|{vbCrLf}
+'node_ifstat    -- xx:xx:xx {else}|{vbCrLf}
 'node_ifblock   -- end with {else}|{elseif}|{end}{if} <-- nFlagsReturn=1 means {end}{if}
 'node_elseblock -- end with {end}{if}
-Friend Function ParseStatementList(ByVal objFile As ISource, ByVal nEndType As Long, Optional ByVal ForVariable As String, Optional ByVal objFunction As FunctionNode, Optional ByRef nFlagsReturn As Long) As StatementListNode
+'node_forstat   -- end with {next} (or {,})
+Friend Function ParseStatementList(ByVal objFile As ISource, ByVal nEndType As Long, Optional ByVal nReserved As Long, Optional ByVal objFunction As FunctionNode, Optional ByRef nFlagsReturn As Long) As StatementListNode
 Dim objList As New StatementListNode
 Dim obj As IASTNode
 Dim objVariable As VariableNode
@@ -257,6 +258,10 @@ Do
    PrintError "Currently unsupported 'End'"
    Exit Function
   End Select
+ Case keyword_exit
+  'TODO:
+  PrintError "Currently unsupported 'Exit'"
+  Exit Function
  Case keyword_if
   If Not GetNextToken(objFile, g_tToken) Then Exit Function
   Set obj = ParseIf(objFile, objFunction)
@@ -273,6 +278,27 @@ Do
    PrintError "'ElseIf' without 'If'"
    Exit Function
   End If
+  Exit Do
+ Case keyword_for
+  If Not GetNextToken(objFile, g_tToken) Then Exit Function
+  Set obj = ParseFor(objFile, objFunction)
+  If obj Is Nothing Then Exit Function
+  objList.AddSubNode obj
+  '///
+  If g_tToken.nType = token_comma Then
+   If nEndType <> node_forstat Then
+    PrintError "End of line expected"
+    Exit Function
+   End If
+   If Not GetNextToken(objFile, g_tToken) Then Exit Function
+   Exit Do
+  End If
+ Case keyword_next
+  If nEndType <> node_forstat Then
+   PrintError "'Next' without 'For'"
+   Exit Function
+  End If
+  If Not GetNextToken(objFile, g_tToken) Then Exit Function
   Exit Do
  Case keyword_let
   If Not GetNextToken(objFile, g_tToken) Then Exit Function
@@ -446,6 +472,73 @@ End Select
 Set ParseIf = obj
 End Function
 
+'{for}(<var>{=}<exp>{to}<exp>|{each}<var>{in}<exp>)<br><statlist>{next}<var>
+Friend Function ParseFor(ByVal objFile As ISource, ByVal objFunction As FunctionNode) As IASTNode
+Dim obj As New ForStatementNode
+Dim objVariable As VariableNode
+Dim objVar2 As VariableNode
+Dim objStart As IASTNode, objEnd As IASTNode, objStep As IASTNode
+Dim objStatement As StatementListNode
+'///
+If g_tToken.nType = keyword_each Then
+ 'TODO:
+ PrintError "Currently 'For Each' is unsupported"
+ Exit Function
+Else
+ Set objVariable = ParseVariable(objFile)
+ If objVariable Is Nothing Then Exit Function
+ '///
+ If g_tToken.nType <> token_equal Then
+  PrintError "'=' expected"
+  Exit Function
+ End If
+ If Not GetNextToken(objFile, g_tToken) Then Exit Function
+ '///
+ Set objStart = ParseExpression(objFile)
+ If objStart Is Nothing Then Exit Function
+ '///
+ If g_tToken.nType <> keyword_to Then
+  PrintError "'To' expected"
+  Exit Function
+ End If
+ If Not GetNextToken(objFile, g_tToken) Then Exit Function
+ '///
+ Set objEnd = ParseExpression(objFile)
+ If objEnd Is Nothing Then Exit Function
+ '///
+ If g_tToken.nType = keyword_step Then
+  If Not GetNextToken(objFile, g_tToken) Then Exit Function
+  Set objStep = ParseExpression(objFile)
+  If objStep Is Nothing Then Exit Function
+ End If
+ '///
+ If Not ParseEndOfLine(objFile) Then Exit Function
+ '///
+ Set objStatement = ParseStatementList(objFile, node_forstat)
+ If objStatement Is Nothing Then Exit Function
+ '///
+ Select Case g_tToken.nType
+ Case token_crlf, token_colon, token_eof, token_comma 'token_comma ??
+ Case Else
+  Set objVar2 = ParseVariable(objFile)
+  If objVar2 Is Nothing Then Exit Function
+  'check objVariable and objVar2 is the same
+  If Not objVariable.IsSameVariable(objVar2) Then
+   PrintError "For variable mismatch"
+   Exit Function
+  End If
+ End Select
+ '///over
+ Set obj.Variable = objVariable
+ Set obj.StartValue = objStart
+ Set obj.EndValue = objEnd
+ Set obj.StepValue = objStep
+ Set obj.StatementList = objStatement
+End If
+'///
+Set ParseFor = obj
+End Function
+
 Friend Function ParseCall(ByVal objFile As ISource, ByVal nFlags As Long, ByVal LHS As VariableNode) As IASTNode
 Dim obj As New CallStatementNode
 Dim objArgList As ArgListNode
@@ -486,10 +579,10 @@ Do
  Set objNode = Nothing
  nType = nFlags And &H2F0&
  '///
-' If g_tToken.nType = keyword_withevents Then
-'  nType = nType Or &H100&
-'  If Not GetNextToken(objFile, g_tToken) Then Exit Function
-' End If
+ If g_tToken.nType = keyword_withevents Then
+  nType = nType Or &H100&
+  If Not GetNextToken(objFile, g_tToken) Then Exit Function
+ End If
  '///
  If g_tToken.nType <> token_id Then
   PrintError "Identifier expected"
@@ -534,10 +627,10 @@ Do
  If g_tToken.nType = keyword_as Then
   If Not GetNextToken(objFile, g_tToken) Then Exit Function
   '///
-'  If g_tToken.nType = keyword_new Then
-'   nType = nType Or &H800&
-'   If Not GetNextToken(objFile, g_tToken) Then Exit Function
-'  End If
+  If g_tToken.nType = keyword_new Then
+   nType = nType Or &H800&
+   If Not GetNextToken(objFile, g_tToken) Then Exit Function
+  End If
   '///
   Set objDataType = ParseDataType(objFile)
   If objDataType Is Nothing Then Exit Function
@@ -718,14 +811,14 @@ Do
  Set objDataType = Nothing
  Set objDefault = Nothing
  '///
-' Select Case g_tToken.nType
-' Case keyword_optional
-'  nFlags = nFlags Or 4&
-'  If Not GetNextToken(objFile, g_tToken) Then Exit Function
-' Case keyword_paramarray
-'  nFlags = nFlags Or 8&
-'  If Not GetNextToken(objFile, g_tToken) Then Exit Function
-' End Select
+ Select Case g_tToken.nType
+ Case keyword_optional
+  nFlags = nFlags Or 4&
+  If Not GetNextToken(objFile, g_tToken) Then Exit Function
+ Case keyword_paramarray
+  nFlags = nFlags Or 8&
+  If Not GetNextToken(objFile, g_tToken) Then Exit Function
+ End Select
  '///
  Select Case g_tToken.nType
  Case keyword_byval

@@ -58,6 +58,15 @@ End Type
 Private m_tTempVariable() As typeFunctionTempVariable '1-based
 Private m_nTempVarCount As Long
 
+Friend Function GetNewVariable(ByVal objContext As clsVerifyContext, ByVal objType As clsTypeNode, ByVal sName As String) As Long
+Dim hBuilder As Long
+'///
+hBuilder = LLVMCreateBuilder
+LLVMPositionBuilderAtEnd hBuilder, m_hFunctionVariableBlock
+GetNewVariable = LLVMBuildAlloca(hBuilder, objType.Handle, StrPtr(StrConv(sName, vbFromUnicode)))
+LLVMDisposeBuilder hBuilder
+End Function
+
 Friend Function GetTempVariable(ByVal objContext As clsVerifyContext, ByVal objType As clsTypeNode) As Long
 Dim hBuilder As Long
 Dim i As Long

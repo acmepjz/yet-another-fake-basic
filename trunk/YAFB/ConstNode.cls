@@ -72,6 +72,14 @@ If m_hType = 0 And m_hConst = 0 Then
    PrintError "Invalid float number '" + m_t.sValue + "'", m_t.nLine, m_t.nColumn
    Exit Function
   End If
+ Case keyword_true
+  m_hType = LLVMInt16Type
+  Set m_objType = g_objIntrinsicDataTypes(vbBoolean)
+  m_hConst = LLVMConstInt(m_hType, 6.5535@, 1)
+ Case keyword_false
+  m_hType = LLVMInt16Type
+  Set m_objType = g_objIntrinsicDataTypes(vbBoolean)
+  m_hConst = LLVMConstInt(m_hType, 0@, 1)
  Case Else
   PrintError "Currently unsupported constant '" + m_t.sValue + "'", m_t.nLine, m_t.nColumn
   Exit Function

@@ -21,7 +21,7 @@ End Sub
 Private Function Factorial(ByVal n As Long) As Long
 Dim i As Long, j As Long
 j = 1
-For i = 1 To n
+For i = n To 1 step -1
  j = j * i
 Next i
 Factorial = j
