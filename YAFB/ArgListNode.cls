@@ -38,6 +38,10 @@ Private Function IASTNode_Codegen(ByVal objContext As clsVerifyContext, ByVal nP
 'TODO:
 End Function
 
+Private Function IASTNode_GetProperty(ByVal nProp As enumASTNodeProperty) As Long
+'
+End Function
+
 Private Function IASTNode_GetType(nFlags As Long) As clsTypeNode
 'nothing
 End Function

@@ -101,3 +101,8 @@ End Sub
 Friend Sub CodegenMoveConstructor(ByVal objContext As clsVerifyContext, ByVal hVariable As Long, ByVal hValue As Long)
 'TODO:
 End Sub
+
+Private Function IASTNode_GetProperty(ByVal nProp As enumASTNodeProperty) As Long
+'
+End Function
+

@@ -44,6 +44,10 @@ Private m_objDataType As DataTypeNode 'must not be Nothing
 Private m_hType As Long 'not exactly
 Private m_hVariable As Long
 
+Private Function IASTNode_GetProperty(ByVal nProp As enumASTNodeProperty) As Long
+'
+End Function
+
 Friend Sub CodegenDefaultDestructor(ByVal objContext As clsVerifyContext)
 If (m_nType And &HF0&) = &HF0& Then
  'function argument. TODO: ByVal String, reference count, etc.

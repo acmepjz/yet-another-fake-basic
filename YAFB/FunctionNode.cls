@@ -52,11 +52,18 @@ Private m_hFunctionEndBlock As Long
 Private Type typeFunctionTempVariable
  hVariable As Long
  objType As clsTypeNode
- bUsed As Boolean
+ nTag As Long
 End Type
 
 Private m_tTempVariable() As typeFunctionTempVariable '1-based
 Private m_nTempVarCount As Long
+
+Private Function IASTNode_GetProperty(ByVal nProp As enumASTNodeProperty) As Long
+Select Case nProp
+Case prop_endblockhandle
+ IASTNode_GetProperty = m_hFunctionEndBlock
+End Select
+End Function
 
 Friend Function GetNewVariable(ByVal objContext As clsVerifyContext, ByVal objType As clsTypeNode, ByVal sName As String) As Long
 Dim hBuilder As Long
@@ -67,14 +74,14 @@ GetNewVariable = LLVMBuildAlloca(hBuilder, objType.Handle, StrPtr(StrConv(sName,
 LLVMDisposeBuilder hBuilder
 End Function
 
-Friend Function GetTempVariable(ByVal objContext As clsVerifyContext, ByVal objType As clsTypeNode) As Long
+Friend Function GetTempVariable(ByVal objContext As clsVerifyContext, ByVal objType As clsTypeNode, ByVal nTag As Long) As Long
 Dim hBuilder As Long
 Dim i As Long
 '///
 For i = 1 To m_nTempVarCount
- If Not m_tTempVariable(i).bUsed Then
+ If m_tTempVariable(i).nTag = 0 Then
   If m_tTempVariable(i).objType Is objType Then
-   m_tTempVariable(i).bUsed = True
+   m_tTempVariable(i).nTag = nTag
    GetTempVariable = m_tTempVariable(i).hVariable
    Exit Function
   End If
@@ -90,18 +97,21 @@ i = LLVMBuildAlloca(hBuilder, objType.Handle, StrPtr(StrConv("TempVariable", vbF
 LLVMDisposeBuilder hBuilder
 '///
 Set m_tTempVariable(m_nTempVarCount).objType = objType
-m_tTempVariable(m_nTempVarCount).bUsed = True
+m_tTempVariable(m_nTempVarCount).nTag = nTag
 m_tTempVariable(m_nTempVarCount).hVariable = i
 GetTempVariable = i
 End Function
 
-Friend Sub ResetTempVariable(ByVal objContext As clsVerifyContext)
-Dim i As Long
+Friend Sub ResetTempVariable(ByVal objContext As clsVerifyContext, ByVal nTag As Long)
+Dim i As Long, j As Long
 '///
 For i = 1 To m_nTempVarCount
- If m_tTempVariable(i).bUsed Then
-  m_tTempVariable(i).objType.CodegenDefaultDestructor objContext, m_tTempVariable(i).hVariable
-  m_tTempVariable(i).bUsed = False
+ j = m_tTempVariable(i).nTag
+ If j Then
+  If j = nTag Or nTag = 0 Then
+   m_tTempVariable(i).objType.CodegenDefaultDestructor objContext, m_tTempVariable(i).hVariable
+   m_tTempVariable(i).nTag = 0
+  End If
  End If
 Next i
 End Sub
@@ -149,9 +159,13 @@ If (m_nType And &H100&) = 0 Then
  End If
  m_objTable.Codegen objNewContext
  '///
+ objContext.Module.AddExitStack Me
+ '///
  LLVMPositionBuilderAtEnd g_hBuilder, hBlock
  Set obj = m_objStatement
  obj.Codegen objNewContext, 0, 0, 0, 0
+ '///
+ objContext.Module.ResetExitStack
  '///
  LLVMBuildBr g_hBuilder, m_hFunctionEndBlock
  '///
@@ -278,12 +292,16 @@ If Not m_objReturnVariable Is Nothing Then
 End If
 '///
 If Not m_objStatement Is Nothing Then
+ objContext.Module.AddExitStack Me
+ '///
  Set obj = m_objStatement
  With New clsVerifyContext
   .Clone objContext
   Set .CurrentFunction = Me
   If Not obj.Verify(.This) Then Exit Function
  End With
+ '///
+ objContext.Module.ResetExitStack
 End If
 '///???
 If objContext.Phase = verify_all Then

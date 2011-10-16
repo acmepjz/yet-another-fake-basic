@@ -24,6 +24,10 @@ Private m_objStringSize As IASTNode 'can be Nothing
 
 Private m_objTypeNode As clsTypeNode
 
+Private Function IASTNode_GetProperty(ByVal nProp As enumASTNodeProperty) As Long
+'
+End Function
+
 Private Function IASTNode_Codegen(ByVal objContext As clsVerifyContext, ByVal nParam1 As Long, ByVal nParam2 As Long, ByVal nParam3 As Long, ByVal nParam4 As Long) As Long
 'TODO:
 End Function

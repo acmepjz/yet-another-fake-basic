@@ -48,6 +48,10 @@ Friend Property Get ArgListCount() As Long
 ArgListCount = m_nCount
 End Property
 
+Private Function IASTNode_GetProperty(ByVal nProp As enumASTNodeProperty) As Long
+'
+End Function
+
 'TODO:
 Private Function IASTNode_GetType(nFlags As Long) As clsTypeNode
 Dim obj As IASTNode
@@ -238,6 +242,9 @@ Dim nArgCount As Long
 Dim objSrcType As clsTypeNode, nSrcFlags As Long
 Dim objDestType As clsTypeNode, nDestFlags As Long
 Dim h As Long, i As Long, j As Long, m As Long
+Dim nTag As Long
+'///
+nTag = ObjPtr(Me)
 '///variable?
 If Not m_objVariable Is Nothing Then
  If bIsLValue Then
@@ -298,12 +305,12 @@ If Not m_objFunction Is Nothing Then
       '///create a temp variable TODO: should reuse temp variable because LLVM can't optimize it
       h = obj.Codegen(objContext, 0, 0, 0, 0)
       If objDestType.DataType = vbEmpty Then 'Any
-       j = objContext.CurrentFunction.GetTempVariable(objContext, objSrcType)
+       j = objContext.CurrentFunction.GetTempVariable(objContext, objSrcType, nTag)
        LLVMBuildStore g_hBuilder, h, j
        hArguments(i) = LLVMBuildPointerCast(g_hBuilder, j, LLVMPointerType(objDestType.Handle, 0), StrPtr(StrConv("ByRefTemp", vbFromUnicode)))
       Else
        h = g_objTypeMgr.CodegenTypeConversion(h, objSrcType, nSrcFlags, objDestType, nDestFlags, False)
-       j = objContext.CurrentFunction.GetTempVariable(objContext, objDestType)
+       j = objContext.CurrentFunction.GetTempVariable(objContext, objDestType, nTag)
        LLVMBuildStore g_hBuilder, h, j
        hArguments(i) = j
       End If
@@ -334,7 +341,7 @@ If Not m_objFunction Is Nothing Then
   i = LLVMBuildCall(g_hBuilder, h, hArguments(1), m, StrPtr(vbNullChar))
  End Select
  LLVMSetInstructionCallConv i, LLVMGetFunctionCallConv(h)
- objContext.CurrentFunction.ResetTempVariable objContext
+ 'objContext.CurrentFunction.ResetTempVariable objContext, nTag 'wrong code, e.g. CopyMemory xxx,ByVal StrPtr(s),xxx
  CodegenEx = i
 End If
 End Function

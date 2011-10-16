@@ -18,10 +18,20 @@ Implements IASTNode
 Private m_objStatment() As IASTNode '1-based
 Private m_nCount As Long
 
+Private Function IASTNode_GetProperty(ByVal nProp As enumASTNodeProperty) As Long
+'
+End Function
+
 Private Function IASTNode_Codegen(ByVal objContext As clsVerifyContext, ByVal nParam1 As Long, ByVal nParam2 As Long, ByVal nParam3 As Long, ByVal nParam4 As Long) As Long
+Dim objFunction As FunctionNode
 Dim i As Long
+'///
+Set objFunction = objContext.CurrentFunction
+'///
+objFunction.ResetTempVariable objContext, 0
 For i = 1 To m_nCount
  m_objStatment(i).Codegen objContext, nParam1, nParam2, nParam3, nParam4
+ objFunction.ResetTempVariable objContext, 0
 Next i
 End Function
 

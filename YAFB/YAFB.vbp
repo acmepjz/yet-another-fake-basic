@@ -30,6 +30,7 @@ Module=mdlRuntimeLibrary; mdlRuntimeLibrary.bas
 Class=clsTypeManager; clsTypeManager.cls
 Class=IfStatementNode; IfStatementNode.cls
 Class=ForStatementNode; ForStatementNode.cls
+Class=ExitStatementNode; ExitStatementNode.cls
 Startup="Sub Main"
 HelpFile=""
 Title="YAFB"

@@ -22,6 +22,17 @@ Private m_objStepValue As IASTNode 'can be Nothing
 
 Private m_objStatement As StatementListNode
 
+'================================ LLVM ================================
+
+Private m_hForEndBlock As Long
+
+Private Function IASTNode_GetProperty(ByVal nProp As enumASTNodeProperty) As Long
+Select Case nProp
+Case prop_endblockhandle
+ IASTNode_GetProperty = m_hForEndBlock
+End Select
+End Function
+
 Friend Property Get Variable() As VariableNode
 Set Variable = m_objVariable
 End Property
@@ -77,7 +88,6 @@ Dim hBlockForStepCheckLesserThanZero As Long
 Dim hBlockForStepGreaterThanZero As Long
 Dim hBlockForStepLesserThanZero As Long
 Dim hBlockFor As Long
-Dim hBlockForEnd As Long
 '///
 Set obj = m_objVariable
 Set objDestType = obj.GetType(nDestFlags)
@@ -126,7 +136,7 @@ hBlockForStepCheckLesserThanZero = LLVMAppendBasicBlock(hFunction, StrPtr(StrCon
 hBlockForStepGreaterThanZero = LLVMAppendBasicBlock(hFunction, StrPtr(StrConv("ForStepGreaterThanZero", vbFromUnicode)))
 hBlockForStepLesserThanZero = LLVMAppendBasicBlock(hFunction, StrPtr(StrConv("ForStepLesserThanZero", vbFromUnicode)))
 hBlockFor = LLVMAppendBasicBlock(hFunction, StrPtr(StrConv("ForBlock", vbFromUnicode)))
-hBlockForEnd = LLVMAppendBasicBlock(hFunction, StrPtr(StrConv("ForEnd", vbFromUnicode)))
+m_hForEndBlock = LLVMAppendBasicBlock(hFunction, StrPtr(StrConv("ForEnd", vbFromUnicode)))
 '///
 LLVMBuildBr g_hBuilder, hBlockForStepCheckGreaterThanZero
 '///check if step>0
@@ -160,18 +170,22 @@ hValue = LLVMBuildLoad(g_hBuilder, hVariable, StrPtr(StrConv("ForVariableTemp", 
 hValue = g_objTypeMgr.CodegenBinaryOperator(hValue, objDestType, _
 LLVMBuildLoad(g_hBuilder, hEndVariable, StrPtr(StrConv("ForEndTemp", vbFromUnicode))), _
 objDestType, token_gt, Nothing, False)
-LLVMBuildCondBr g_hBuilder, hValue, hBlockForEnd, hBlockFor
+LLVMBuildCondBr g_hBuilder, hValue, m_hForEndBlock, hBlockFor
 '///if step<0 then if v<end then over
 LLVMPositionBuilderAtEnd g_hBuilder, hBlockForStepLesserThanZero
 hValue = LLVMBuildLoad(g_hBuilder, hVariable, StrPtr(StrConv("ForVariableTemp", vbFromUnicode)))
 hValue = g_objTypeMgr.CodegenBinaryOperator(hValue, objDestType, _
 LLVMBuildLoad(g_hBuilder, hEndVariable, StrPtr(StrConv("ForEndTemp", vbFromUnicode))), _
 objDestType, token_lt, Nothing, False)
-LLVMBuildCondBr g_hBuilder, hValue, hBlockForEnd, hBlockFor
+LLVMBuildCondBr g_hBuilder, hValue, m_hForEndBlock, hBlockFor
 '///codegen for body
+objContext.Module.AddExitStack Me
+'///
 LLVMPositionBuilderAtEnd g_hBuilder, hBlockFor
 Set obj = m_objStatement
 obj.Codegen objContext, nParam1, nParam2, nParam3, nParam4
+'///
+objContext.Module.RemoveExitStack
 '///
 hValue = LLVMBuildLoad(g_hBuilder, hVariable, StrPtr(StrConv("ForVariableTemp", vbFromUnicode)))
 hValue = g_objTypeMgr.CodegenBinaryOperator(hValue, objDestType, _
@@ -180,7 +194,7 @@ objSrcType, token_plus, objDestType, False)
 LLVMBuildStore g_hBuilder, hValue, hVariable
 LLVMBuildBr g_hBuilder, hBlockForStepCheckGreaterThanZero
 '///over
-LLVMPositionBuilderAtEnd g_hBuilder, hBlockForEnd
+LLVMPositionBuilderAtEnd g_hBuilder, m_hForEndBlock
 End Function
 
 Private Function IASTNode_GetType(nFlags As Long) As clsTypeNode
@@ -196,8 +210,12 @@ Dim obj As IASTNode
 Dim objSrcType As clsTypeNode, nSrcFlags As Long
 Dim objDestType As clsTypeNode, nDestFlags As Long
 '///
+objContext.Module.AddExitStack Me
+'///
 Set obj = m_objStatement
 If Not obj.Verify(objContext) Then Exit Function
+'///
+objContext.Module.RemoveExitStack
 '///
 If objContext.Phase = verify_all Then
  'TODO: check it's fixed variable (e.g. For x(i)= ... is not allowed)
