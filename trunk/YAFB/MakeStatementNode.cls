@@ -24,6 +24,10 @@ Private m_nFlags As Long
 Private m_objLHS As VariableNode
 Private m_objRHS As IASTNode
 
+Private Function IASTNode_GetProperty(ByVal nProp As enumASTNodeProperty) As Long
+'
+End Function
+
 '??
 Private Function IASTNode_GetType(nFlags As Long) As clsTypeNode
 Dim obj As IASTNode

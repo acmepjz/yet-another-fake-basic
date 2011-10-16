@@ -34,3 +34,8 @@ End Property
 Private Function IASTNode_Verify(ByVal objContext As clsVerifyContext) As Boolean
 IASTNode_Verify = True '??
 End Function
+
+Private Function IASTNode_GetProperty(ByVal nProp As enumASTNodeProperty) As Long
+'
+End Function
+

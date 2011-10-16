@@ -22,6 +22,10 @@ Private m_objSubNode(1) As IASTNode
 
 Private m_objType As clsTypeNode
 
+Private Function IASTNode_GetProperty(ByVal nProp As enumASTNodeProperty) As Long
+'
+End Function
+
 Private Function IASTNode_GetType(nFlags As Long) As clsTypeNode
 nFlags = 0 '???
 Set IASTNode_GetType = m_objType

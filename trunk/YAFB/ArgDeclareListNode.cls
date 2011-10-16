@@ -65,6 +65,10 @@ For i = 1 To m_nCount
 Next i
 End Sub
 
+Private Function IASTNode_GetProperty(ByVal nProp As enumASTNodeProperty) As Long
+'
+End Function
+
 Private Function IASTNode_GetType(nFlags As Long) As clsTypeNode
 'nothing
 End Function

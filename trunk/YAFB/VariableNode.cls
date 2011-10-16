@@ -20,6 +20,10 @@ Implements IASTNode
 Private m_objSubNode() As ArrayOrFuncNode '1-based
 Private m_nCount As Long
 
+Private Function IASTNode_GetProperty(ByVal nProp As enumASTNodeProperty) As Long
+'
+End Function
+
 Friend Property Get SubNodeCount() As Long
 SubNodeCount = m_nCount
 End Property

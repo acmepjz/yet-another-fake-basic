@@ -23,6 +23,40 @@ Private m_objNodes As New Collection
 
 Private m_objTable As clsSymbolTable
 
+Private m_objForStack() As ForStatementNode '1-based
+Private m_nForStackSize As Long
+
+Private m_objExitStack() As IASTNode '1-based
+Private m_nExitStackSize As Long
+
+Friend Sub AddExitStack(ByVal obj As IASTNode)
+m_nExitStackSize = m_nExitStackSize + 1
+ReDim Preserve m_objExitStack(1 To m_nExitStackSize)
+Set m_objExitStack(m_nExitStackSize) = obj
+End Sub
+
+Friend Sub RemoveExitStack()
+If m_nExitStackSize > 0 Then
+ Set m_objExitStack(m_nExitStackSize) = Nothing
+ m_nExitStackSize = m_nExitStackSize - 1
+End If
+End Sub
+
+Friend Sub ResetExitStack()
+Erase m_objExitStack
+m_nExitStackSize = 0
+End Sub
+
+Friend Function QueryExitStack(ByVal nType As enumASTNodeType) As IASTNode
+Dim i As Long
+For i = m_nExitStackSize To 1 Step -1
+ If m_objExitStack(i).NodeType = nType Then
+  Set QueryExitStack = m_objExitStack(i)
+  Exit Function
+ End If
+Next i
+End Function
+
 Friend Property Get SymbolTable() As clsSymbolTable
 Set SymbolTable = m_objTable
 End Property
@@ -259,9 +293,18 @@ Do
    Exit Function
   End Select
  Case keyword_exit
-  'TODO:
-  PrintError "Currently unsupported 'Exit'"
-  Exit Function
+  If Not GetNextToken(objFile, g_tToken) Then Exit Function
+  '///
+  If g_tToken.nType > 1000 And g_tToken.nType < 2000 Then
+   With New ExitStatementNode
+    If Not .SetToken(True) Then Exit Function
+    objList.AddSubNode .This
+   End With
+   If Not GetNextToken(objFile, g_tToken) Then Exit Function
+  Else
+   PrintError "Keyword expected"
+   Exit Function
+  End If
  Case keyword_if
   If Not GetNextToken(objFile, g_tToken) Then Exit Function
   Set obj = ParseIf(objFile, objFunction)
@@ -479,6 +522,7 @@ Dim objVariable As VariableNode
 Dim objVar2 As VariableNode
 Dim objStart As IASTNode, objEnd As IASTNode, objStep As IASTNode
 Dim objStatement As StatementListNode
+Dim i As Long
 '///
 If g_tToken.nType = keyword_each Then
  'TODO:
@@ -487,6 +531,13 @@ If g_tToken.nType = keyword_each Then
 Else
  Set objVariable = ParseVariable(objFile)
  If objVariable Is Nothing Then Exit Function
+ '///check if current variable is conflict with previous for variable
+ For i = 1 To m_nForStackSize
+  If objVariable.IsSameVariable(m_objForStack(i).Variable) Then
+   PrintError "For variable is already used in previous 'For' statement"
+   Exit Function
+  End If
+ Next i
  '///
  If g_tToken.nType <> token_equal Then
   PrintError "'=' expected"
@@ -513,8 +564,20 @@ Else
  End If
  '///
  If Not ParseEndOfLine(objFile) Then Exit Function
+ '///add current statement to the stack
+ Set obj.Variable = objVariable
+ Set obj.StartValue = objStart
+ Set obj.EndValue = objEnd
+ Set obj.StepValue = objStep
+ m_nForStackSize = m_nForStackSize + 1
+ ReDim Preserve m_objForStack(1 To m_nForStackSize)
+ Set m_objForStack(m_nForStackSize) = obj
  '///
  Set objStatement = ParseStatementList(objFile, node_forstat)
+ '///remove current statement from the stack
+ Set m_objForStack(m_nForStackSize) = Nothing
+ m_nForStackSize = m_nForStackSize - 1
+ '///
  If objStatement Is Nothing Then Exit Function
  '///
  Select Case g_tToken.nType
@@ -529,10 +592,6 @@ Else
   End If
  End Select
  '///over
- Set obj.Variable = objVariable
- Set obj.StartValue = objStart
- Set obj.EndValue = objEnd
- Set obj.StepValue = objStep
  Set obj.StatementList = objStatement
 End If
 '///
@@ -743,7 +802,15 @@ If Not obj.Register(m_objTable) Then Exit Function
 '///
 If (nFlags And &H100&) = 0 Then
  If Not ParseEndOfLine(objFile) Then Exit Function
+ '///
+ Erase m_objForStack
+ m_nForStackSize = 0
+ '///
  Set objStatement = ParseStatementList(objFile, nFlags And &HF&, , obj)
+ '///
+ Erase m_objForStack
+ m_nForStackSize = 0
+ '///
  If objStatement Is Nothing Then Exit Function
  obj.SetStatement objStatement
 End If

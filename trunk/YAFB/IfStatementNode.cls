@@ -28,6 +28,10 @@ Private m_objThen() As StatementListNode 'can be Nothing
 
 Private m_objElse As StatementListNode 'can be Nothing
 
+Private Function IASTNode_GetProperty(ByVal nProp As enumASTNodeProperty) As Long
+'
+End Function
+
 Friend Property Get ThenBlockCount() As Long
 ThenBlockCount = m_nCount
 End Property

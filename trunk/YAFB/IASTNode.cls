@@ -28,3 +28,7 @@ End Function
 Public Function GetType(ByRef nFlags As Long) As clsTypeNode
 '
 End Function
+
+Public Function GetProperty(ByVal nProp As enumASTNodeProperty) As Long
+'
+End Function

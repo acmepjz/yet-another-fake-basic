@@ -18,6 +18,10 @@ Implements IASTNode
 Private m_objSubNode() As DimNode '1-based
 Private m_nCount As Long
 
+Private Function IASTNode_GetProperty(ByVal nProp As enumASTNodeProperty) As Long
+'
+End Function
+
 Private Function IASTNode_GetType(nFlags As Long) As clsTypeNode
 'nothing
 End Function

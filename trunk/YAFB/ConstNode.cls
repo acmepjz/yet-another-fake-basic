@@ -24,6 +24,10 @@ Private m_objType As clsTypeNode
 Private m_hType As Long
 Private m_hConst As Long
 
+Private Function IASTNode_GetProperty(ByVal nProp As enumASTNodeProperty) As Long
+'
+End Function
+
 Private Function IASTNode_Codegen(ByVal objContext As clsVerifyContext, ByVal nParam1 As Long, ByVal nParam2 As Long, ByVal nParam3 As Long, ByVal nParam4 As Long) As Long
 IASTNode_Codegen = m_hConst '??
 End Function
