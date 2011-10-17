@@ -226,7 +226,7 @@ If objContext.Phase = verify_all Then
  Select Case objDestType.DataType
  Case vbByte, vbInteger, vbLong, vbCurrency, vbSingle, vbDouble, vbDate
  Case Else
-  PrintError "Can't use data type '" + objDestType.Name + "' for 'For' variable", -1, -1
+  PrintError "Type mismatch: can't use data type '" + objDestType.Name + "' for 'For' variable", -1, -1
   Exit Function
  End Select
  '///
@@ -234,7 +234,7 @@ If objContext.Phase = verify_all Then
  nSrcFlags = 0
  Set objSrcType = m_objStartValue.GetType(nSrcFlags)
  If g_objTypeMgr.CheckTypeConversion(objSrcType, nSrcFlags, objDestType, nDestFlags) = 0 Then
-  PrintError "Can't convert data type '" + objSrcType.Name + "' to '" + objDestType.Name + "'", -1, -1
+  PrintError "Type mismatch: can't convert data type '" + objSrcType.Name + "' to '" + objDestType.Name + "'", -1, -1
   Exit Function
  End If
  '///
@@ -242,7 +242,7 @@ If objContext.Phase = verify_all Then
  nSrcFlags = 0
  Set objSrcType = m_objEndValue.GetType(nSrcFlags)
  If g_objTypeMgr.CheckTypeConversion(objSrcType, nSrcFlags, objDestType, nDestFlags) = 0 Then
-  PrintError "Can't convert data type '" + objSrcType.Name + "' to '" + objDestType.Name + "'", -1, -1
+  PrintError "Type mismatch: can't convert data type '" + objSrcType.Name + "' to '" + objDestType.Name + "'", -1, -1
   Exit Function
  End If
  '///
@@ -251,7 +251,7 @@ If objContext.Phase = verify_all Then
   nSrcFlags = 0
   Set objSrcType = m_objStepValue.GetType(nSrcFlags)
   If g_objTypeMgr.CheckTypeConversion(objSrcType, nSrcFlags, objDestType, nDestFlags) = 0 Then
-   PrintError "Can't convert data type '" + objSrcType.Name + "' to '" + objDestType.Name + "'", -1, -1
+   PrintError "Type mismatch: can't convert data type '" + objSrcType.Name + "' to '" + objDestType.Name + "'", -1, -1
    Exit Function
   End If
  End If

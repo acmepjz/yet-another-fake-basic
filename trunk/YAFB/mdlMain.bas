@@ -9,7 +9,7 @@ Private Const STD_ERROR_HANDLE As Long = -12&
 
 Private Declare Sub CopyMemory Lib "kernel32.dll" Alias "RtlMoveMemory" (ByRef Destination As Any, ByRef Source As Any, ByVal Length As Long)
 
-Public Declare Sub abort Lib "msvcrt.dll" ()
+Public Declare Sub DebugBreak Lib "kernel32.dll" ()
 
 Public Argc As Long, Argv() As String
 
@@ -37,6 +37,11 @@ Public g_nErrors As Long, g_nWarnings As Long
 Public g_hModule As Long, g_hBuilder As Long
 
 Public g_hTargetData As Long
+
+Public Sub Panic()
+Debug.Assert False
+DebugBreak
+End Sub
 
 Public Sub Puts(ByVal s As String)
 Dim i As Long
