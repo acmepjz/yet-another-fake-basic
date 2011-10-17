@@ -244,7 +244,7 @@ Dim objDestType As clsTypeNode, nDestFlags As Long
 Dim h As Long, i As Long, j As Long, m As Long
 Dim nTag As Long
 '///
-nTag = ObjPtr(Me)
+nTag = node_array_or_func
 '///variable?
 If Not m_objVariable Is Nothing Then
  If bIsLValue Then

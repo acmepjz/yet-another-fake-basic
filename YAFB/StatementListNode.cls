@@ -28,10 +28,10 @@ Dim i As Long
 '///
 Set objFunction = objContext.CurrentFunction
 '///
-objFunction.ResetTempVariable objContext, 0
+objFunction.ResetTempVariable objContext, node_array_or_func
 For i = 1 To m_nCount
  m_objStatment(i).Codegen objContext, nParam1, nParam2, nParam3, nParam4
- objFunction.ResetTempVariable objContext, 0
+ objFunction.ResetTempVariable objContext, node_array_or_func
 Next i
 End Function
 

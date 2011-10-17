@@ -99,7 +99,7 @@ For i = 1 To m_nCount
  Case vbSingle, vbDouble
   hValue = LLVMBuildFCmp(g_hBuilder, LLVMRealUNE, hValue, LLVMConstReal(objType.Handle, 0#), lp)
  Case Else
-  abort
+  Panic
  End Select
  '///
  hTmpBlock = LLVMAppendBasicBlock(hFunction, lp2)

@@ -67,7 +67,7 @@ End If
 '///
 If m_nType And &H400& Then
  'TODO:array
- abort
+ Panic
 Else
  i = m_objDataType.GetDataType.Handle
  If m_nType And &H1000& Then
