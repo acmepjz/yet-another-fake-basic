@@ -16,6 +16,7 @@ Option Explicit
 Private m_objFunc As Collection
 Private m_objVariable As Collection
 Private m_objType As Collection
+Private m_objLineNumber As Collection
 
 Friend Property Get FunctionTable() As Collection
 Set FunctionTable = m_objFunc
@@ -29,10 +30,15 @@ Friend Property Get TypeTable() As Collection
 Set TypeTable = m_objType
 End Property
 
+Friend Property Get LineNumberTable() As Collection
+Set LineNumberTable = m_objLineNumber
+End Property
+
 Private Sub Class_Initialize()
 Set m_objFunc = New Collection
 Set m_objVariable = New Collection
 Set m_objType = New Collection
+Set m_objLineNumber = New Collection
 End Sub
 
 Friend Sub Codegen(ByVal objContext As clsVerifyContext)

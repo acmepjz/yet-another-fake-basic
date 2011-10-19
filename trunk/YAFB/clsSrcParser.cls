@@ -238,10 +238,13 @@ Friend Function ParseStatementList(ByVal objFile As ISource, ByVal nEndType As L
 Dim objList As New StatementListNode
 Dim obj As IASTNode
 Dim objVariable As VariableNode
+Dim bParsedLineNumber As Boolean
 '///
 nFlagsReturn = 0
 '///
 Do
+ bParsedLineNumber = False
+ '///
  Select Case g_tToken.nType
  Case token_crlf, token_colon
  Case keyword_dim
@@ -419,8 +422,29 @@ Do
   Set obj = ParseCall(objFile, 1, Nothing)
   If obj Is Nothing Then Exit Function
   objList.AddSubNode obj
+ Case token_linenumber
+  With New LineNumberStatement
+   .SetToken
+   If Not .Register(objFunction.SymbolTable) Then Exit Function
+   objList.AddSubNode .This
+  End With
+  If Not GetNextToken(objFile, g_tToken) Then Exit Function
+  bParsedLineNumber = True
+ Case keyword_goto
+  If Not GetNextToken(objFile, g_tToken) Then Exit Function
+  Select Case g_tToken.nType
+  Case token_id, token_decnum
+   With New GoToStatement
+    .SetToken
+    objList.AddSubNode .This
+   End With
+   If Not GetNextToken(objFile, g_tToken) Then Exit Function
+  Case Else
+   PrintError "Identifier or decimal number expected"
+   Exit Function
+  End Select
  Case Else
-  PrintError "Currently unsupported"
+  PrintError "Syntax error or currently unsupported"
   Exit Function
  End Select
  '///
@@ -435,7 +459,7 @@ Do
    PrintError "':' or 'Else' or end of line expected"
    Exit Function
   End Select
- Else
+ ElseIf Not bParsedLineNumber Then
   If Not ParseEndOfLine(objFile) Then Exit Function
  End If
 Loop
@@ -1259,7 +1283,9 @@ End Function
 
 Friend Function GetBinaryTokPrecedence() As Long
 Select Case g_tToken.nType
-Case keyword_xor
+Case keyword_imp '??
+ GetBinaryTokPrecedence = 7
+Case keyword_xor, keyword_eqv '??
  GetBinaryTokPrecedence = 10
 Case keyword_or
  GetBinaryTokPrecedence = 20

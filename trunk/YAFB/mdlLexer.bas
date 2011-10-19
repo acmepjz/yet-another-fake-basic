@@ -66,6 +66,7 @@ Dim c1 As Long
 Dim i As Long
 '///
 Dim nFlags As Long
+Dim CanBeLineNumber As Boolean
 '///
 If nKeywordCount = 0 Then pInitKeyword
 '///
@@ -73,6 +74,8 @@ ret.nFlags = 0
 ret.nFlags2 = 0
 ret.sValue = vbNullString
 GetNextToken = True
+'///
+CanBeLineNumber = objFile.Column = 1
 '///
 label_start:
 c1 = objFile.GetCh
@@ -258,20 +261,24 @@ Case Else
    ElseIf i = ["!"] Or i = ["#"] Or i = ["$"] Or i = ["%"] Or i = ["&"] Or i = ["@"] Then
     s1 = s1 + ChrW(c)
     Exit Do
-   Else
+   ElseIf StrComp(s1, "Rem", vbTextCompare) = 0 Then
     objFile.UnGetCh
+    GoTo label_comment
+   Else
     Exit Do
    End If
   Loop
-  If StrComp(s1, "Rem", vbTextCompare) = 0 Then
-   GoTo label_comment
+  '///
+  ret.nType = 1000 + pIsKeyword(s1)
+  If ret.nType = 1000 And i = [":"] And CanBeLineNumber Then
+   ret.nType = token_linenumber
   Else
-   ret.nType = 1000 + pIsKeyword(s1)
-   ret.nLine = objFile.Line
-   ret.nColumn = objFile.Column
-   ret.sValue = s1
-   Exit Function
+   objFile.UnGetCh
   End If
+  ret.nLine = objFile.Line
+  ret.nColumn = objFile.Column
+  ret.sValue = s1
+  Exit Function
  ElseIf i = ["lll"] Then
   Do
    c = objFile.GetCh
@@ -336,7 +343,7 @@ Do
   GoTo label_floatnum
  Case ["e"], ["d"], ["ee"], ["dd"]
   GoTo label_floatnum_e
- Case ["&"]
+ Case ["%"], ["&"]
   s1 = s1 + ChrW(c)
   ret.nType = token_decnum
   ret.nLine = objFile.Line
@@ -359,7 +366,8 @@ Do
   Exit Function
  Case Else
   objFile.UnGetCh
-  ret.nType = token_decnum
+  If CanBeLineNumber Then ret.nType = token_linenumber _
+  Else ret.nType = token_decnum
   ret.nLine = objFile.Line
   ret.nColumn = objFile.Column
   ret.sValue = s1
@@ -373,7 +381,7 @@ Do
  Select Case c
  Case ["0"] To ["9"], ["a"] To ["f"], ["aa"] To ["ff"]
   s1 = s1 + ChrW(c)
- Case ["&"]
+ Case ["%"], ["&"]
   s1 = s1 + ChrW(c)
   ret.nType = token_hexnum
   ret.nLine = objFile.Line
@@ -396,7 +404,7 @@ Do
  Select Case c
  Case ["0"] To ["7"]
   s1 = s1 + ChrW(c)
- Case ["&"]
+ Case ["%"], ["&"]
   s1 = s1 + ChrW(c)
   ret.nType = token_octnum
   ret.nLine = objFile.Line
@@ -552,79 +560,79 @@ End Function
 
 Private Sub pInitKeyword()
 '### BEGIN INIT KEYWORD
-nKeywordCount=72
+nKeywordCount = 72
 ReDim sKeywords(1 To 72)
-sKeywords(1)="alias"
-sKeywords(2)="and"
-sKeywords(3)="as"
-sKeywords(4)="attribute"
-sKeywords(5)="byref"
-sKeywords(6)="byval"
-sKeywords(7)="call"
-sKeywords(8)="case"
-sKeywords(9)="close"
-sKeywords(10)="const"
-sKeywords(11)="declare"
-sKeywords(12)="dim"
-sKeywords(13)="do"
-sKeywords(14)="each"
-sKeywords(15)="else"
-sKeywords(16)="elseif"
-sKeywords(17)="end"
-sKeywords(18)="enum"
-sKeywords(19)="eqv"
-sKeywords(20)="exit"
-sKeywords(21)="false"
-sKeywords(22)="for"
-sKeywords(23)="friend"
-sKeywords(24)="function"
-sKeywords(25)="get"
-sKeywords(26)="global"
-sKeywords(27)="goto"
-sKeywords(28)="if"
-sKeywords(29)="imp"
-sKeywords(30)="in"
-sKeywords(31)="input"
-sKeywords(32)="is"
-sKeywords(33)="let"
-sKeywords(34)="lib"
-sKeywords(35)="line"
-sKeywords(36)="loop"
-sKeywords(37)="lset"
-sKeywords(38)="mod"
-sKeywords(39)="new"
-sKeywords(40)="next"
-sKeywords(41)="not"
-sKeywords(42)="on"
-sKeywords(43)="open"
-sKeywords(44)="option"
-sKeywords(45)="optional"
-sKeywords(46)="or"
-sKeywords(47)="paramarray"
-sKeywords(48)="preserve"
-sKeywords(49)="print"
-sKeywords(50)="private"
-sKeywords(51)="property"
-sKeywords(52)="public"
-sKeywords(53)="put"
-sKeywords(54)="raiseevent"
-sKeywords(55)="redim"
-sKeywords(56)="rset"
-sKeywords(57)="select"
-sKeywords(58)="set"
-sKeywords(59)="static"
-sKeywords(60)="step"
-sKeywords(61)="sub"
-sKeywords(62)="then"
-sKeywords(63)="to"
-sKeywords(64)="true"
-sKeywords(65)="type"
-sKeywords(66)="until"
-sKeywords(67)="wend"
-sKeywords(68)="while"
-sKeywords(69)="with"
-sKeywords(70)="withevents"
-sKeywords(71)="write"
-sKeywords(72)="xor"
+sKeywords(1) = "alias"
+sKeywords(2) = "and"
+sKeywords(3) = "as"
+sKeywords(4) = "attribute"
+sKeywords(5) = "byref"
+sKeywords(6) = "byval"
+sKeywords(7) = "call"
+sKeywords(8) = "case"
+sKeywords(9) = "close"
+sKeywords(10) = "const"
+sKeywords(11) = "declare"
+sKeywords(12) = "dim"
+sKeywords(13) = "do"
+sKeywords(14) = "each"
+sKeywords(15) = "else"
+sKeywords(16) = "elseif"
+sKeywords(17) = "end"
+sKeywords(18) = "enum"
+sKeywords(19) = "eqv"
+sKeywords(20) = "exit"
+sKeywords(21) = "false"
+sKeywords(22) = "for"
+sKeywords(23) = "friend"
+sKeywords(24) = "function"
+sKeywords(25) = "get"
+sKeywords(26) = "global"
+sKeywords(27) = "goto"
+sKeywords(28) = "if"
+sKeywords(29) = "imp"
+sKeywords(30) = "in"
+sKeywords(31) = "input"
+sKeywords(32) = "is"
+sKeywords(33) = "let"
+sKeywords(34) = "lib"
+sKeywords(35) = "line"
+sKeywords(36) = "loop"
+sKeywords(37) = "lset"
+sKeywords(38) = "mod"
+sKeywords(39) = "new"
+sKeywords(40) = "next"
+sKeywords(41) = "not"
+sKeywords(42) = "on"
+sKeywords(43) = "open"
+sKeywords(44) = "option"
+sKeywords(45) = "optional"
+sKeywords(46) = "or"
+sKeywords(47) = "paramarray"
+sKeywords(48) = "preserve"
+sKeywords(49) = "print"
+sKeywords(50) = "private"
+sKeywords(51) = "property"
+sKeywords(52) = "public"
+sKeywords(53) = "put"
+sKeywords(54) = "raiseevent"
+sKeywords(55) = "redim"
+sKeywords(56) = "rset"
+sKeywords(57) = "select"
+sKeywords(58) = "set"
+sKeywords(59) = "static"
+sKeywords(60) = "step"
+sKeywords(61) = "sub"
+sKeywords(62) = "then"
+sKeywords(63) = "to"
+sKeywords(64) = "true"
+sKeywords(65) = "type"
+sKeywords(66) = "until"
+sKeywords(67) = "wend"
+sKeywords(68) = "while"
+sKeywords(69) = "with"
+sKeywords(70) = "withevents"
+sKeywords(71) = "write"
+sKeywords(72) = "xor"
  '### END INIT KEYWORD
 End Sub
