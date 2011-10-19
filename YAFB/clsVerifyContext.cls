@@ -73,6 +73,21 @@ Friend Property Get This() As clsVerifyContext
 Set This = Me
 End Property
 
+Friend Function LookUpLineNumberTable(ByVal sName As String) As LineNumberStatement
+On Error Resume Next
+Dim obj As LineNumberStatement
+'///
+If Not m_objFunction Is Nothing Then
+ Err.Clear
+ Set obj = m_objFunction.SymbolTable.LineNumberTable.Item(sName)
+ If Err.Number = 0 Then
+  Set LookUpLineNumberTable = obj
+  Exit Function
+ End If
+End If
+'///
+End Function
+
 Friend Function LookUpVariableTable(ByVal sName As String) As DimNode
 On Error Resume Next
 Dim obj As DimNode

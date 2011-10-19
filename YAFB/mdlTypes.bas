@@ -136,6 +136,7 @@ Public Enum enumTokenType
  token_and = 27
  token_currencynum = 28
  token_datenum = 29
+ token_linenumber = 30
  '///in frm and ctl
  token_guid = 101
  '### BEGIN KEYWORD ENUM

@@ -205,7 +205,7 @@ nType1 = objType1.DataType
 nType2 = objType2.DataType
 '///
 Select Case nOperator
-Case keyword_xor, keyword_or, keyword_and
+Case keyword_xor, keyword_or, keyword_and, keyword_eqv, keyword_imp
  If nType1 = vbBoolean And nType2 = vbBoolean Then
   Set CheckBinaryOperator = objType1
  Else
@@ -343,11 +343,27 @@ Case Else
   Else
    CodegenBinaryOperator = LLVMBuildXor(g_hBuilder, hValue1, hValue2, StrPtr(StrConv("XorTemp", vbFromUnicode)))
   End If
+ Case keyword_eqv
+  If bIsConstant Then
+   CodegenBinaryOperator = LLVMConstNot(LLVMConstXor(hValue1, hValue2))
+  Else
+   CodegenBinaryOperator = LLVMBuildNot(g_hBuilder, _
+   LLVMBuildXor(g_hBuilder, hValue1, hValue2, StrPtr(StrConv("XorTemp", vbFromUnicode))), _
+   StrPtr(StrConv("EqvTemp", vbFromUnicode)))
+  End If
  Case keyword_or
   If bIsConstant Then
    CodegenBinaryOperator = LLVMConstOr(hValue1, hValue2)
   Else
    CodegenBinaryOperator = LLVMBuildOr(g_hBuilder, hValue1, hValue2, StrPtr(StrConv("OrTemp", vbFromUnicode)))
+  End If
+ Case keyword_imp
+  If bIsConstant Then
+   CodegenBinaryOperator = LLVMConstOr(LLVMConstNot(hValue1), hValue2)
+  Else
+   CodegenBinaryOperator = LLVMBuildOr(g_hBuilder, _
+   LLVMBuildNot(g_hBuilder, hValue1, StrPtr(StrConv("NotTemp", vbFromUnicode))) _
+   , hValue2, StrPtr(StrConv("ImpTemp", vbFromUnicode)))
   End If
  Case keyword_and
   If bIsConstant Then

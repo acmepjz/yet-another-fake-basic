@@ -18,18 +18,21 @@ ReadFile h, c, 1, j, ByVal 0
 PrintInteger Factorial(c And &HF&)
 End Sub
 
-Private Function Factorial(ByVal n As Long) As Long
-Dim i As Long, j As Long
-j = 1
-For i = n To 1 step -1
- j = j * i
-Next i
-Factorial = j
-End Function
-
 'Private Function Factorial(ByVal n As Long) As Long
-'If n <= 1 Then Factorial = 1 Else Factorial = Factorial(n - 1) * n
+'Dim i As Long, j As Long
+'j = 1
+'For i = n To 1 step -1
+' j = j * i
+'Next i
+'Factorial = j
 'End Function
+
+Private Function Factorial(ByVal n As Long) As Long
+'If n <= 1 Then Factorial = 1 Else Factorial = Factorial(n - 1) * n
+a10: goto a20
+Do:loop
+a20: goto a10
+End Function
 
 Private Sub PrintInteger(ByVal n As Long)
 Dim h As Long, i As Long
