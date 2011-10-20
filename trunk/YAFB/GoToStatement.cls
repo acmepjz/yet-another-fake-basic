@@ -23,23 +23,11 @@ Private m_obj As LineNumberStatement
 Private m_hBlock As Long
 
 Private Function IASTNode_Codegen(ByVal objContext As clsVerifyContext, ByVal nParam1 As Long, ByVal nParam2 As Long, ByVal nParam3 As Long, ByVal nParam4 As Long) As Long
-Dim hFunction As Long
-'///
-hFunction = objContext.CurrentFunction.FunctionHandle
-'LLVM-C doesn't have function for getting current basic block :(
-'following code are stupid workaround
-m_hBlock = LLVMAppendBasicBlock(hFunction, StrPtr(StrConv("GoToTemp", vbFromUnicode)))
-LLVMBuildBr g_hBuilder, m_hBlock
-'///register
-objContext.CurrentFunction.AddCodegenGoTo Me
-'///over
-LLVMPositionBuilderAtEnd g_hBuilder, LLVMAppendBasicBlock(hFunction, StrPtr(StrConv("DeadCode", vbFromUnicode)))
-End Function
-
-Friend Sub CodedenGoTo()
-LLVMPositionBuilderAtEnd g_hBuilder, m_hBlock
 LLVMBuildBr g_hBuilder, m_obj.BlockHandle
-End Sub
+'///over
+LLVMPositionBuilderAtEnd g_hBuilder, _
+LLVMAppendBasicBlock(objContext.CurrentFunction.FunctionHandle, StrPtr(StrConv("DeadCode", vbFromUnicode)))
+End Function
 
 Private Function IASTNode_GetProperty(ByVal nProp As enumASTNodeProperty) As Long
 'nothing

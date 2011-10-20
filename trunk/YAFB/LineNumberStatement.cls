@@ -25,8 +25,11 @@ Friend Property Get BlockHandle() As Long
 BlockHandle = m_hBlock
 End Property
 
-Private Function IASTNode_Codegen(ByVal objContext As clsVerifyContext, ByVal nParam1 As Long, ByVal nParam2 As Long, ByVal nParam3 As Long, ByVal nParam4 As Long) As Long
+Friend Sub CodegenLineNumber(ByVal objContext As clsVerifyContext)
 m_hBlock = LLVMAppendBasicBlock(objContext.CurrentFunction.FunctionHandle, StrPtr(StrConv(m_t.sValue, vbFromUnicode)))
+End Sub
+
+Private Function IASTNode_Codegen(ByVal objContext As clsVerifyContext, ByVal nParam1 As Long, ByVal nParam2 As Long, ByVal nParam3 As Long, ByVal nParam4 As Long) As Long
 LLVMBuildBr g_hBuilder, m_hBlock
 LLVMPositionBuilderAtEnd g_hBuilder, m_hBlock
 End Function
