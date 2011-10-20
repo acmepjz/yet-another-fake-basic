@@ -67,3 +67,12 @@ For Each v In m_objVariable
 Next v
 End Sub
 
+Friend Sub CodegenLineNumber(ByVal objContext As clsVerifyContext)
+Dim v As Variant
+Dim obj As LineNumberStatement
+'///
+For Each v In m_objLineNumber
+ Set obj = v
+ obj.CodegenLineNumber objContext
+Next v
+End Sub

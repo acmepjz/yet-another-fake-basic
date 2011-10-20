@@ -119,7 +119,8 @@ If objContext.Phase = verify_all Then
   If Not obj.Verify(objContext) Then Exit Function
  Next i
  '///look up the symbol table
- If Not bIsCall Then
+ '///check array (??) TEST ONLY!!! TODO:
+ If Not bIsCall And m_nCount = 0 Then
   Set objVariable = objContext.LookUpVariableTable(m_t.sValue)
  End If
  If objVariable Is Nothing Then

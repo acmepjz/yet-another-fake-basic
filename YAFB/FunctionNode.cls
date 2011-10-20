@@ -58,21 +58,6 @@ End Type
 Private m_tTempVariable() As typeFunctionTempVariable '1-based
 Private m_nTempVarCount As Long
 
-Private m_objGoTo As New Collection
-
-Friend Sub AddCodegenGoTo(ByVal obj As GoToStatement)
-m_objGoTo.Add obj
-End Sub
-
-Friend Sub CodegenGoTo()
-Dim v As Variant
-Dim obj As GoToStatement
-For Each v In m_objGoTo
- Set obj = v
- obj.CodedenGoTo
-Next v
-End Sub
-
 Private Function IASTNode_GetProperty(ByVal nProp As enumASTNodeProperty) As Long
 Select Case nProp
 Case prop_endblockhandle
@@ -176,6 +161,8 @@ If (m_nType And &H100&) = 0 Then
  '///
  objContext.Module.AddExitStack Me
  '///
+ m_objTable.CodegenLineNumber objNewContext
+ '///
  LLVMPositionBuilderAtEnd g_hBuilder, hBlock
  Set obj = m_objStatement
  obj.Codegen objNewContext, 0, 0, 0, 0
@@ -199,7 +186,6 @@ If (m_nType And &H100&) = 0 Then
   LLVMBuildRetVoid g_hBuilder
  End Select
  '///
- CodegenGoTo
 End If
 End Function
 

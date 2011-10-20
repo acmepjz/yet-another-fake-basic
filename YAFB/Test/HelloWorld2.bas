@@ -28,10 +28,7 @@ End Sub
 'End Function
 
 Private Function Factorial(ByVal n As Long) As Long
-'If n <= 1 Then Factorial = 1 Else Factorial = Factorial(n - 1) * n
-a10: goto a20
-Do:loop
-a20: goto a10
+If n <= 1 Then Factorial = 1 Else Factorial = Factorial(n - 1) * n
 End Function
 
 Private Sub PrintInteger(ByVal n As Long)
