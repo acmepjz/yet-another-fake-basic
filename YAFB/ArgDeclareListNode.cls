@@ -113,6 +113,8 @@ Private Function IASTNode_Verify(ByVal objContext As clsVerifyContext) As Boolea
 Dim i As Long
 Dim nLastFlags As Long
 Dim obj As IASTNode
+Dim objSrcType As clsTypeNode, nSrcFlags As Long
+Dim objDestType As clsTypeNode
 '///
 Select Case objContext.Phase
 Case verify_const
@@ -143,13 +145,41 @@ Case verify_dim
  Next i
 Case verify_all
  For i = 1 To m_nCount
-  If Not m_objDefault(i) Is Nothing Then
-   'TODO:
-   PrintError "Currently default argument is unsupported", -1, -1
-   Exit Function
-'   If Not m_objDefault(i).Verify(objContext) Then Exit Function
-'   'TODO:check it's constant expression
-'   'TODO:check type mismatch
+  If m_nFlags(i) And 4& Then
+   If m_objDefault(i) Is Nothing Then
+    '///get default value of data type
+    Set objDestType = m_obj(i).DataType.GetDataType
+    Select Case objDestType.DataType
+    Case vbByte, vbInteger, vbLong, vbCurrency, vbBoolean
+     With New ConstNode
+      .CreateIndirect objDestType, LLVMConstInt(objDestType.Handle, 0@, 1)
+      Set m_objDefault(i) = .This
+     End With
+    Case vbSingle, vbDouble
+     With New ConstNode
+      .CreateIndirect objDestType, LLVMConstReal(objDestType.Handle, 0#)
+      Set m_objDefault(i) = .This
+     End With
+    Case Else
+     'TODO:
+     PrintError "Current default value of data type '" + objDestType.Name + "' is unsupported", -1, -1
+     Exit Function
+    End Select
+   Else
+    '///convert data type
+    Set objSrcType = m_objDefault(i).GetType(nSrcFlags)
+    Set objDestType = m_obj(i).DataType.GetDataType
+    Select Case g_objTypeMgr.CheckTypeConversion(objSrcType, nSrcFlags, objDestType, 0)
+    Case 0
+     PrintError "Type mismatch: can't convert data type '" + objSrcType.Name + "' to '" + objDestType.Name + "'", -1, -1
+     Exit Function
+    End Select
+    With New ConstNode
+     .CreateIndirect objDestType, _
+     g_objTypeMgr.CodegenTypeConversion(m_objDefault(i).GetProperty(action_const_codegen), objSrcType, nSrcFlags, objDestType, 0, True)
+     Set m_objDefault(i) = .This
+    End With
+   End If
   End If
  Next i
 End Select

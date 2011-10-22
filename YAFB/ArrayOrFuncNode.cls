@@ -252,6 +252,13 @@ Case verify_all
      '///
     End If
    Next i
+   '///check omitted arguments
+   For i = nArgCount + 1 To m
+    If (objArgDeclareList.ArgumentFlags(i) And 4&) = 0 Then
+     PrintError "Argument " + CStr(i) + " of function '" + m_t.sValue + "' is not optional", m_t.nLine, m_t.nColumn
+     Exit Function
+    End If
+   Next i
    '///
   End If
  End If
