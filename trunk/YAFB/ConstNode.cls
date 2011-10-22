@@ -24,6 +24,12 @@ Private m_objType As clsTypeNode
 Private m_hType As Long
 Private m_hConst As Long
 
+Friend Sub CreateIndirect(ByVal objType As clsTypeNode, ByVal hConst As Long)
+Set m_objType = objType
+m_hType = objType.Handle
+m_hConst = hConst
+End Sub
+
 Private Function IASTNode_GetProperty(ByVal nProp As enumASTNodeProperty) As Long
 Select Case nProp
 Case action_const_codegen
