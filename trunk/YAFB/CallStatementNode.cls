@@ -34,7 +34,12 @@ Set m_objFunc = obj
 End Sub
 
 Private Function IASTNode_Verify(ByVal objContext As clsVerifyContext) As Boolean
-IASTNode_Verify = m_objFunc.VerifyEx(objContext, , True)
+Select Case objContext.Phase
+Case verify_const
+ IASTNode_Verify = True
+Case Else
+ IASTNode_Verify = m_objFunc.VerifyEx(objContext, , True)
+End Select
 End Function
 
 Private Function IASTNode_Codegen(ByVal objContext As clsVerifyContext, ByVal nParam1 As Long, ByVal nParam2 As Long, ByVal nParam3 As Long, ByVal nParam4 As Long) As Long

@@ -14,7 +14,7 @@ Attribute VB_Exposed = False
 Option Explicit
 
 Private m_objFunc As Collection
-Private m_objVariable As Collection
+Private m_objVariable As Collection 'not all items are variables, some are constants
 Private m_objType As Collection
 Private m_objLineNumber As Collection
 

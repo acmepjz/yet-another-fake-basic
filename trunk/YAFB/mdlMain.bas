@@ -25,6 +25,9 @@ Public g_objFiles As New Collection
 Public g_objParser As New Collection
 Public g_objGlobalTable As clsSymbolTable
 
+Public g_objConstDAG As New clsDAG
+Public g_objTypeDAG As New clsDAG
+
 Public g_objTypeMgr As New clsTypeManager
 
 Public g_tToken As typeToken
@@ -272,11 +275,36 @@ If g_nErrors > 0 Or g_bErr Then
 End If
 '///verify
 Puts "Verifying..." + vbCrLf
-If Not VerifyAll(verify_type) Then
+'///
+If Not VerifyAll(verify_const) Then
  g_bErr = True
-ElseIf Not VerifyAll(verify_dim) Then
- g_bErr = True
-ElseIf Not VerifyAll(verify_all) Then
+ElseIf g_objConstDAG.RunTopologicalSort Then
+ '///codegen constants
+ For i = 1 To g_objConstDAG.NodeCount
+  If g_objConstDAG.SortedNode(i).GetProperty(action_const_codegen) = 0 Then
+   g_bErr = True
+   Exit For
+  End If
+ Next i
+ '///
+ If g_bErr Then
+ ElseIf g_objTypeDAG.RunTopologicalSort Then
+  'TODO:codegen types
+  '///
+  If Not VerifyAll(verify_type) Then
+   g_bErr = True
+  ElseIf Not VerifyAll(verify_dim) Then
+   g_bErr = True
+  ElseIf Not VerifyAll(verify_all) Then
+   g_bErr = True
+  End If
+  '///
+ Else
+  PrintError "There are circular dependency of types in source code", -1, -1
+  g_bErr = True
+ End If
+Else
+ PrintError "There are circular dependency of constants in source code", -1, -1
  g_bErr = True
 End If
 '///

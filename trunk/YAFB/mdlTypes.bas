@@ -321,11 +321,14 @@ Public Enum enumASTNodeType
 End Enum
 
 Public Enum enumASTNodeVerifyStep
- verify_type = 1
- verify_dim = 2
+ verify_const = 1
+ verify_type = 3
+ verify_dim = 4
  verify_all = 99
 End Enum
 
 Public Enum enumASTNodeProperty
  prop_endblockhandle = 1
+ '/////
+ action_const_codegen = 10001
 End Enum

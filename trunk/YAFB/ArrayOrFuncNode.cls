@@ -29,6 +29,8 @@ Private m_nCount As Long
 Private m_objVariable As DimNode
 Private m_objFunction As FunctionNode
 
+Private m_hConst As Long
+
 Friend Function IsSameVariable(ByVal obj As ArrayOrFuncNode) As Boolean
 Dim t As typeToken
 '///
@@ -49,7 +51,16 @@ ArgListCount = m_nCount
 End Property
 
 Private Function IASTNode_GetProperty(ByVal nProp As enumASTNodeProperty) As Long
-'
+Dim obj As IASTNode
+'///
+Select Case nProp
+Case action_const_codegen
+ If m_hConst = 0 Then
+  Set obj = m_objVariable
+  m_hConst = obj.GetProperty(action_const_codegen)
+ End If
+ IASTNode_GetProperty = m_hConst
+End Select
 End Function
 
 'TODO:
@@ -104,7 +115,31 @@ Dim objSrcType As clsTypeNode, nSrcFlags As Long
 Dim objDestType As clsTypeNode, nDestFlags As Long
 Dim i As Long, m As Long
 '///
-If objContext.Phase = verify_all Then
+Select Case objContext.Phase
+Case verify_const
+ If m_t.nFlags2 And 1& Then
+  PrintError "Member variable in constant is unsupported", -1, -1
+  Exit Function
+ End If
+ If m_nCount > 0 Then
+  PrintError "Array and function in constant is unsupported", -1, -1
+  Exit Function
+ End If
+ '///look up the symbol table
+ Set objVariable = objContext.LookUpVariableTable(m_t.sValue)
+ If objVariable Is Nothing Then
+  PrintError "Variable '" + m_t.sValue + "' not found", m_t.nLine, m_t.nColumn
+  Exit Function
+ ElseIf (objVariable.DimType And &HF&) <> 4 Then
+  PrintError "Variable '" + m_t.sValue + "' is not a constant", m_t.nLine, m_t.nColumn
+  Exit Function
+ Else
+  '///register dependency
+  g_objConstDAG.AddEdge objVariable, Me
+ End If
+ '///over
+ Set m_objVariable = objVariable
+Case verify_all
  If m_t.nFlags2 And 1& Then
   PrintError "Currently member variable and function is unsupported", -1, -1
   Exit Function
@@ -221,14 +256,18 @@ If objContext.Phase = verify_all Then
   End If
  End If
  '///TODO:etc.
-End If
+End Select
 '///
 VerifyEx = True
 End Function
 
 'TODO:
 Friend Function IsLValue() As Boolean
-IsLValue = Not m_objVariable Is Nothing
+If Not m_objVariable Is Nothing Then
+ If (m_objVariable.DimType And &HF&) = 0 Then
+  IsLValue = True
+ End If
+End If
 End Function
 
 'TODO:
@@ -248,13 +287,22 @@ Dim nTag As Long
 nTag = node_array_or_func
 '///variable?
 If Not m_objVariable Is Nothing Then
- If bIsLValue Then
-  CodegenEx = m_objVariable.VariableHandle
-  Exit Function
- Else
-  CodegenEx = LLVMBuildLoad(g_hBuilder, m_objVariable.VariableHandle, StrPtr(StrConv("LoadTemp", vbFromUnicode)))
-  Exit Function
- End If
+ Select Case m_objVariable.DimType And &HF&
+ Case 0 'dim
+  If bIsLValue Then
+   CodegenEx = m_objVariable.VariableHandle
+  Else
+   CodegenEx = LLVMBuildLoad(g_hBuilder, m_objVariable.VariableHandle, StrPtr(StrConv("LoadTemp", vbFromUnicode)))
+  End If
+ Case 4 'const
+  If bIsLValue Then
+   Panic
+  Else
+   CodegenEx = m_objVariable.ConstHandle
+  End If
+ End Select
+ '///
+ Exit Function
 End If
 '///function?
 If Not m_objFunction Is Nothing Then

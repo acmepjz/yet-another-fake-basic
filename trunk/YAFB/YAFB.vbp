@@ -36,6 +36,7 @@ Class=SelectStatementNode; SelectStatementNode.cls
 Class=SelectBlockNode; SelectBlockNode.cls
 Class=LineNumberStatement; LineNumberStatement.cls
 Class=GoToStatement; GoToStatement.cls
+Class=clsDAG; clsDAG.cls
 Startup="Sub Main"
 HelpFile=""
 Title="YAFB"

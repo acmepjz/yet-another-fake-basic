@@ -22,8 +22,50 @@ Private m_objSubNode(1) As IASTNode
 
 Private m_objType As clsTypeNode
 
+'================================ LLVM ================================
+
+Private m_hConst As Long
+
 Private Function IASTNode_GetProperty(ByVal nProp As enumASTNodeProperty) As Long
-'
+Dim hValue1 As Long, hValue2 As Long
+Dim objType1 As clsTypeNode, nFlags1 As Long
+Dim objType2 As clsTypeNode, nFlags2 As Long
+'///
+Select Case nProp
+Case action_const_codegen
+ If m_hConst = 0 Then
+  Select Case m_nOperandCount
+  Case 1
+   hValue1 = m_objSubNode(0).GetProperty(action_const_codegen)
+   If hValue1 = 0 Then Exit Function
+   '///
+   Set objType1 = m_objSubNode(0).GetType(nFlags1)
+   Set m_objType = g_objTypeMgr.CheckUnaryOperator(objType1, m_nOperatorType)
+   If m_objType Is Nothing Then
+    PrintError "Can't apply operator <TODO> on data type '" + objType1.Name + "'", -1, -1
+    Exit Function
+   End If
+   '///
+   m_hConst = g_objTypeMgr.CodegenUnaryOperator(hValue1, objType1, m_nOperatorType, m_objType, True)
+  Case 2
+   hValue1 = m_objSubNode(0).GetProperty(action_const_codegen)
+   If hValue1 = 0 Then Exit Function
+   hValue2 = m_objSubNode(1).GetProperty(action_const_codegen)
+   If hValue2 = 0 Then Exit Function
+   '///
+   Set objType1 = m_objSubNode(0).GetType(nFlags1)
+   Set objType2 = m_objSubNode(1).GetType(nFlags2)
+   Set m_objType = g_objTypeMgr.CheckBinaryOperator(objType1, objType2, m_nOperatorType)
+   If m_objType Is Nothing Then
+    PrintError "Can't apply operator <TODO> on data type '" + objType1.Name + "' and '" + objType2.Name + "'", -1, -1
+    Exit Function
+   End If
+   '///
+   m_hConst = g_objTypeMgr.CodegenBinaryOperator(hValue1, objType1, hValue2, objType2, m_nOperatorType, m_objType, True)
+  End Select
+ End If
+ IASTNode_GetProperty = m_hConst
+End Select
 End Function
 
 Private Function IASTNode_GetType(nFlags As Long) As clsTypeNode
@@ -55,7 +97,13 @@ For i = 0 To m_nOperandCount - 1
  If Not m_objSubNode(i).Verify(objContext) Then Exit Function
 Next i
 '///
-If objContext.Phase = verify_all Then
+Select Case objContext.Phase
+Case verify_const
+ '///register dependency
+ For i = 0 To m_nOperandCount - 1
+  g_objConstDAG.AddEdge m_objSubNode(i), Me
+ Next i
+Case verify_all
  Select Case m_nOperandCount
  Case 1
   Set objType1 = m_objSubNode(0).GetType(nFlags1)
@@ -73,7 +121,7 @@ If objContext.Phase = verify_all Then
    Exit Function
   End If
  End Select
-End If
+End Select
 '///
 IASTNode_Verify = True
 End Function
