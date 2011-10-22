@@ -20,8 +20,21 @@ Implements IASTNode
 Private m_objSubNode() As ArrayOrFuncNode '1-based
 Private m_nCount As Long
 
+'================================ LLVM ================================
+
+Private m_hConst As Long
+
 Private Function IASTNode_GetProperty(ByVal nProp As enumASTNodeProperty) As Long
-'
+Dim obj As IASTNode
+'///
+Select Case nProp
+Case action_const_codegen
+ If m_hConst = 0 Then
+  Set obj = m_objSubNode(1)
+  m_hConst = obj.GetProperty(action_const_codegen)
+ End If
+ IASTNode_GetProperty = m_hConst
+End Select
 End Function
 
 Friend Property Get SubNodeCount() As Long
@@ -71,13 +84,22 @@ End Sub
 
 'TODO:
 Friend Function VerifyEx(ByVal objContext As clsVerifyContext, Optional ByVal bIsLValue As Boolean, Optional ByVal bIsCall As Boolean) As Boolean
-If objContext.Phase = verify_all Then
+Select Case objContext.Phase
+Case verify_const
+ If m_nCount <> 1 Then
+  PrintError "Member variable and function in constant is unsupported", -1, -1
+  Exit Function
+ End If
+ If Not m_objSubNode(1).VerifyEx(objContext, bIsLValue, bIsCall) Then Exit Function
+ '///register dependency
+ g_objConstDAG.AddEdge m_objSubNode(1), Me
+Case verify_all
  If m_nCount <> 1 Then
   PrintError "Currently member variable and function is unsupported", -1, -1
   Exit Function
  End If
  If Not m_objSubNode(1).VerifyEx(objContext, bIsLValue, bIsCall) Then Exit Function
-End If
+End Select
 '///
 VerifyEx = True
 End Function

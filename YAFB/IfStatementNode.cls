@@ -135,9 +135,14 @@ Private Function IASTNode_Verify(ByVal objContext As clsVerifyContext) As Boolea
 Dim i As Long
 Dim obj As IASTNode
 Dim objType As clsTypeNode, nFlags As Long
+Dim nPhase As enumASTNodeVerifyStep
+'///
+nPhase = objContext.Phase
 '///
 For i = 1 To m_nCount
- If Not m_objCondition(i).Verify(objContext) Then Exit Function
+ If nPhase = verify_all Then
+  If Not m_objCondition(i).Verify(objContext) Then Exit Function
+ End If
  '///
  Set obj = m_objThen(i)
  If Not obj Is Nothing Then
@@ -150,7 +155,7 @@ If Not obj Is Nothing Then
  If Not obj.Verify(objContext) Then Exit Function
 End If
 '///check condition data type
-If objContext.Phase = verify_all Then
+If nPhase = verify_all Then
  For i = 1 To m_nCount
   Set objType = m_objCondition(i).GetType(nFlags)
   Select Case objType.DataType

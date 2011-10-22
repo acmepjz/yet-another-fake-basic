@@ -70,13 +70,15 @@ Private Function IASTNode_Verify(ByVal objContext As clsVerifyContext) As Boolea
 Dim obj As IASTNode
 Dim i As Long
 '///
-For i = 1 To m_nCondCount
- If Not m_objCond0(i).Verify(objContext) Then Exit Function
- Set obj = m_objCond1(i)
- If Not obj Is Nothing Then
-  If Not obj.Verify(objContext) Then Exit Function
- End If
-Next i
+If objContext.Phase = verify_all Then
+ For i = 1 To m_nCondCount
+  If Not m_objCond0(i).Verify(objContext) Then Exit Function
+  Set obj = m_objCond1(i)
+  If Not obj Is Nothing Then
+   If Not obj.Verify(objContext) Then Exit Function
+  End If
+ Next i
+End If
 '///
 Set obj = m_objStatement
 If Not obj.Verify(objContext) Then Exit Function

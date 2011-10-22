@@ -1,2 +1,2 @@
-YAFB.exe -O3 -emit-llvm -S Test\HelloWorld2.bas
+YAFB.exe -O0 -emit-llvm -S Test\HelloWorld2.bas
 pause

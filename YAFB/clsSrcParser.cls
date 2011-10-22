@@ -252,6 +252,11 @@ Do
   Set obj = ParseDim(objFile, 0, objFunction)
   If obj Is Nothing Then Exit Function
   objList.AddSubNode obj
+ Case keyword_const
+  If Not GetNextToken(objFile, g_tToken) Then Exit Function
+  Set obj = ParseConst(objFile, 0, objFunction)
+  If obj Is Nothing Then Exit Function
+  objList.AddSubNode obj
  Case keyword_static
   If Not GetNextToken(objFile, g_tToken) Then Exit Function
   Set obj = ParseDim(objFile, &H200&, objFunction)
@@ -880,8 +885,56 @@ Set ParseCall = obj
 End Function
 
 Friend Function ParseConst(ByVal objFile As ISource, ByVal nFlags As Long, Optional ByVal objFunction As FunctionNode) As IASTNode
-'TODO:
-PrintError "Currently unsupported 'Const'"
+Dim obj As New DimListNode
+Dim objNode As New DimNode
+Dim objDataType As DataTypeNode
+Dim objValue As IASTNode
+'///
+nFlags = nFlags Or 4&
+'///
+Do
+ Set objNode = Nothing
+ '///
+ If g_tToken.nType <> token_id Then
+  PrintError "Identifier expected"
+  Exit Function
+ End If
+ objNode.SetToken
+ If Not GetNextToken(objFile, g_tToken) Then Exit Function
+ '///
+ If g_tToken.nType = keyword_as Then
+  If Not GetNextToken(objFile, g_tToken) Then Exit Function
+  Set objDataType = ParseDataType(objFile)
+  If objDataType Is Nothing Then Exit Function
+  Set objNode.DataType = objDataType
+ Else
+  Set objDataType = Nothing
+ End If
+ '///
+ If g_tToken.nType <> token_equal Then
+  PrintError "'=' expected"
+  Exit Function
+ End If
+ If Not GetNextToken(objFile, g_tToken) Then Exit Function
+ '///
+ Set objValue = ParseExpression(objFile)
+ If objValue Is Nothing Then Exit Function
+ Set objNode.InitValue = objValue
+ '///
+ objNode.DimType = nFlags
+ obj.AddSubNode objNode
+ '///
+ If g_tToken.nType <> token_comma Then Exit Do
+ If Not GetNextToken(objFile, g_tToken) Then Exit Function
+Loop
+'///
+If objFunction Is Nothing Then
+ If Not obj.Register(m_objTable) Then Exit Function
+Else
+ If Not obj.Register(objFunction.SymbolTable) Then Exit Function
+End If
+'///
+Set ParseConst = obj
 End Function
 
 Friend Function ParseDim(ByVal objFile As ISource, ByVal nFlags As Long, Optional ByVal objFunction As FunctionNode) As IASTNode
@@ -954,7 +1007,7 @@ Do
   Set objNode.DataType = objDataType
  Else
   PrintWarning "Data type unspecified; use default type 'Variant'"
-  objNode.SetVariantType
+  objNode.SetDataTypeFromString "Variant"
  End If
  '///
  objNode.DimType = nType

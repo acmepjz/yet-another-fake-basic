@@ -77,14 +77,14 @@ Dim obj As IASTNode
 Dim objDestType As clsTypeNode, nDestFlags As Long
 Dim i As Long
 '///
-If Not m_objCondition.Verify(objContext) Then Exit Function
-'///
 For i = 1 To m_nBlockCount
  Set obj = m_objBlock(i)
  If Not obj.Verify(objContext) Then Exit Function
 Next i
 '///check data type
 If objContext.Phase = verify_all Then
+ If Not m_objCondition.Verify(objContext) Then Exit Function
+ '///
  Set objDestType = m_objCondition.GetType(nDestFlags)
  For i = 1 To m_nBlockCount
   If Not m_objBlock(i).VerifyConditionDataType(objDestType, nDestFlags) Then Exit Function

@@ -135,12 +135,12 @@ Case verify_dim
   ErrorNotFound
   Exit Function
  End If
- If m_objTypeNode.DataType = vbString And Not m_objStringSize Is Nothing Then
-  ErrorNoFixedString
-  Exit Function
- End If
- 'TODO:fixed-size string
  If Not m_objStringSize Is Nothing Then
+  If Not m_objTypeNode.DataType <> vbString Then
+   ErrorNoFixedString
+   Exit Function
+  End If
+  'TODO:fixed-size string
   PrintError "Currently fixed-size string is unsupported", -1, -1
   Exit Function
  End If

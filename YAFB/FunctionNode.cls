@@ -270,7 +270,7 @@ Set m_objReturnVariable = New DimNode
 m_objReturnVariable.DimType = nFlags
 m_objReturnVariable.SetTokenEx m_tName
 If obj Is Nothing Then
- m_objReturnVariable.SetVariantType
+ m_objReturnVariable.SetDataTypeFromString "Variant"
 Else
  Set m_objReturnVariable.DataType = obj
 End If

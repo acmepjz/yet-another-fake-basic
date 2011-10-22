@@ -87,7 +87,7 @@ Dim obj As New DimNode
 obj.DimType = &HF0& Or (((nFlags And &H1&) = 0) And &H1000&) Or (((nFlags And &H2&) <> 0) And &H400&)
 obj.SetTokenEx tName
 If objDataType Is Nothing Then
- obj.SetVariantType
+ obj.SetDataTypeFromString "Variant"
 Else
  Set obj.DataType = objDataType
 End If
@@ -115,6 +115,12 @@ Dim nLastFlags As Long
 Dim obj As IASTNode
 '///
 Select Case objContext.Phase
+Case verify_const
+ For i = 1 To m_nCount
+  If Not m_objDefault(i) Is Nothing Then
+   If Not m_objDefault(i).Verify(objContext) Then Exit Function
+  End If
+ Next i
 Case verify_dim
  For i = 1 To m_nCount
   Set obj = m_obj(i)
