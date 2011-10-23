@@ -157,6 +157,13 @@ Case 0 'dim
  ElseIf objContext.Module.FileType = 0 Then
   '///global variable
   m_hVariable = LLVMAddGlobal(g_hModule, m_hType, ByVal StrPtr(StrConv(m_t.sValue, vbFromUnicode)))
+  '/// ???
+  Select Case m_objDataType.GetDataType.DataType
+  Case vbByte, vbInteger, vbLong, vbBoolean, vbCurrency
+   LLVMSetInitializer m_hVariable, LLVMConstInt(m_hType, 0@, 1)
+  Case vbSingle, vbDouble, vbDate
+   LLVMSetInitializer m_hVariable, LLVMConstReal(m_hType, 0#)
+  End Select
  Else
   'TODO: class member variable
  End If

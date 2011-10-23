@@ -133,7 +133,7 @@ If m_nType And &H100& Then
 End If
 m_hFunction = LLVMAddFunction(g_hModule, StrPtr(StrConv(s, vbFromUnicode)), m_hFunctionType)
 LLVMSetLinkage m_hFunction, LLVMExternalLinkage '??
-LLVMSetFunctionCallConv m_hFunction, LLVMX86StdcallCallConv '?? TODO:cdecl support
+LLVMSetFunctionCallConv m_hFunction, g_nDefaultCC '?? TODO:cdecl support
 End Sub
 
 Friend Property Get ArgumentDeclareList() As ArgDeclareListNode

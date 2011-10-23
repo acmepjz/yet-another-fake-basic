@@ -7,7 +7,7 @@ Private Declare Function ReadFile Lib "kernel32.dll" (ByVal hFile As Long, ByRef
 Private Const STD_ERROR_HANDLE As Long = -12&
 Private Const STD_INPUT_HANDLE As Long = -10&
 
-private z as long
+private z as long,zz as variant
 
 public const xyz=1293+STD_ERROR_HANDLE*STD_INPUT_HANDLE
 public const wc=xyz^2
@@ -17,7 +17,7 @@ Dim h As Long
 Dim i As Long, j As Long
 Dim c As Long
 '///input
-h = GetStdHandle(-10&)
+h = GetStdHandle(STD_INPUT_HANDLE)
 ReadFile h, c, 1, j, ByVal 0
 '///calc factorial
 PrintInteger Factorial
@@ -34,14 +34,14 @@ End Sub
 'End Function
 
 Private Function Factorial(optional ByVal n As Long=wc\453) As Long
-'If n <= 1 Then Factorial = 1 Else Factorial = Factorial(n - 1) * n
-const OXZ as long=wc\453
-Factorial=OXZ-n
+If n <= 1 Then Factorial = 1 Else Factorial = Factorial(n - 1) * n
+'const OXZ as long=wc\453
+'Factorial=OXZ-n
 End Function
 
 Private Sub PrintInteger(ByVal n As Long)
 Dim h As Long, i As Long
-h = GetStdHandle(-12)
+h = GetStdHandle(STD_ERROR_HANDLE)
 If n < 0 Then
  n = -n
  WriteFile h, 45&, 1, 0&, ByVal 0
