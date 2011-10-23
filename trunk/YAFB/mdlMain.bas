@@ -15,12 +15,6 @@ Public Argc As Long, Argv() As String
 
 Public hStdErr As Long
 
-Public g_bAssemble As Boolean
-Public g_bLink As Boolean 'currently unsupported
-Public g_bEmitLLVM As Boolean
-
-Public g_nOptimizeLevel As LLVMCodeGenOpt
-
 Public g_objFiles As New Collection
 Public g_objParser As New Collection
 Public g_objGlobalTable As clsSymbolTable
@@ -34,6 +28,26 @@ Public g_tToken As typeToken
 
 Public g_bErr As Boolean
 Public g_nErrors As Long, g_nWarnings As Long
+
+'================================ Options ================================
+
+Public g_bAssemble As Boolean
+Public g_bLink As Boolean 'currently unsupported
+Public g_bEmitLLVM As Boolean
+
+Public g_nOptimizeLevel As LLVMCodeGenOpt
+Public g_bOptimizeForSize As Boolean
+
+Public g_sOutputFile As String
+
+Public g_sTriple As String, g_sFeatures As String
+Public g_nDefaultCC As LLVMCallConv
+
+Public g_bErrorHandling As Boolean
+
+'///
+
+Public g_bInitAll As Boolean
 
 '================================ LLVM ================================
 
@@ -155,7 +169,7 @@ g_nWarnings = g_nWarnings + 1
 End Sub
 
 Public Sub PrintHelp(ByVal s1 As String, ByVal s2 As String)
-Puts "  " + Format(s1, "!@@@@@@@@@@@@@@@@") + s2 + vbCrLf
+Puts "  " + Format(s1, "!@@@@@@@@@@@@@@@@@@@@@@@@") + "- " + s2 + vbCrLf
 End Sub
 
 Public Sub ShowHelp()
@@ -163,15 +177,52 @@ Puts "OVERVIEW: Yet Another Fake Basic Compiler (TEST ONLY)" + vbCrLf + vbCrLf
 Puts "USAGE: " + Argv(0) + " [options] <inputs>" + vbCrLf + vbCrLf
 Puts "OPTIONS:" + vbCrLf
 '///
-PrintHelp "--help", "Display available options"
+PrintHelp "-help", "Display available options"
 PrintHelp "-S", "Only run compilation steps"
 PrintHelp "-c", "Only run compile and assemble steps"
 PrintHelp "-emit-llvm", "Use the LLVM representation for assembler and object files"
 PrintHelp "-o <file>", "Write output to <file>"
 PrintHelp "-O0", "No optimization"
 PrintHelp "-O1", "Less optimization"
-PrintHelp "-O2, -Os", "Default optimization"
+PrintHelp "-O2", "Default optimization"
 PrintHelp "-O3", "Aggressive optimization"
+PrintHelp "-Os", "Optimize for size"
+PrintHelp "-Gd", "Use 'cdecl' calling convention"
+PrintHelp "-Gr", "Use 'fastcall' calling convention"
+PrintHelp "-Gz", "Use 'stdcall' calling convention (default)"
+PrintHelp "-e", "Enables error checking and handling (TEST ONLY)"
+PrintHelp "-triple <string>", "Target triple to assemble for, see -version for available targets. Default value is 'i686-pc-mingw32'"
+PrintHelp "-features <string>", "Target features. Default value is 'i686,mmx,sse,sse2,sse3'. Type 'help' for avaliable features."
+PrintHelp "-version", "Display the version of this program"
+End Sub
+
+Public Sub ShowVersion()
+Dim hTargetMachine As Long
+'///
+Puts "Yet Another Fake Basic Compiler - pre-alpha version" + vbCrLf + _
+App.LegalCopyright + vbCrLf + _
+"Website: http://code.google.com/p/yet-another-fake-basic/" + vbCrLf + vbCrLf
+''///doesn't work, TODO:
+'LLVMInitializeAllTargetInfos
+'LLVMInitializeAllTargets
+''///
+'hTargetMachine = LLVMCreateTargetMachine("help", "help")
+'LLVMDisposeTargetMachine hTargetMachine
+End Sub
+
+Public Sub ShowTripleHelp()
+Dim hTargetMachine As Long
+Dim hPass As Long
+'///
+If g_sTriple = vbNullString Then
+ g_sTriple = "i686-pc-mingw32"
+End If
+'///
+LLVMInitializeAllTargetInfos
+LLVMInitializeAllTargets
+'///
+hTargetMachine = LLVMCreateTargetMachine(g_sTriple, "help")
+LLVMDisposeTargetMachine hTargetMachine
 End Sub
 
 Public Sub Main()
@@ -183,6 +234,7 @@ Dim objFile As ISource
 g_bAssemble = True
 g_bLink = True
 g_nOptimizeLevel = LLVMCodeGenOpt_Default
+g_nDefaultCC = LLVMX86StdcallCallConv
 '///
 If App.LogMode <> 1 Then
  'test only
@@ -200,14 +252,22 @@ Else
   If hStdErr = 0 Or hStdErr = -1 Then hStdErr = 0
  End If
 End If
-'///test only
+'///parse command lines
 For i = 1 To Argc - 1
  s = Argv(i)
  Select Case Left(s, 1)
  Case "-"
+  For j = 2 To Len(s)
+   If Mid(s, j, 1) <> "-" Then Exit For
+  Next j
+  s = Mid(s, j - 1)
+  '///
   Select Case s
-  Case "--help"
+  Case "-help"
    ShowHelp
+   Exit Sub
+  Case "-version"
+   ShowVersion
    Exit Sub
   Case "-S"
    g_bAssemble = False
@@ -220,21 +280,50 @@ For i = 1 To Argc - 1
   Case "-o"
    i = i + 1
    If i >= Argc Then
-    Puts "Error: Missing output file name" + vbCrLf
+    Puts "Error: Missing arguments" + vbCrLf
     Exit Sub
    End If
-   'TODO:
+   g_sOutputFile = Argv(i)
   Case "-O0"
    g_nOptimizeLevel = LLVMCodeGenOpt_None
   Case "-O1"
    g_nOptimizeLevel = LLVMCodeGenOpt_Less
-  Case "-O2", "-Os"
+  Case "-O2"
    g_nOptimizeLevel = LLVMCodeGenOpt_Default
   Case "-O3"
    g_nOptimizeLevel = LLVMCodeGenOpt_Aggressive
+  Case "-Os"
+   g_bOptimizeForSize = True
+  Case "-Gd"
+   g_nDefaultCC = LLVMCCallConv
+  Case "-Gr"
+   g_nDefaultCC = LLVMX86FastcallCallConv 'LLVMFastCallConv '??
+  Case "-Gz"
+   g_nDefaultCC = LLVMX86StdcallCallConv
+  Case "-e"
+   g_bErrorHandling = True
+  Case "-triple"
+   i = i + 1
+   If i >= Argc Then
+    Puts "Error: Missing arguments" + vbCrLf
+    Exit Sub
+   End If
+   g_sTriple = Argv(i)
+   g_bInitAll = True
+  Case "-features"
+   i = i + 1
+   If i >= Argc Then
+    Puts "Error: Missing arguments" + vbCrLf
+    Exit Sub
+   End If
+   g_sFeatures = Argv(i)
+   If InStr(1, g_sFeatures, "help", vbTextCompare) > 0 Then
+    ShowTripleHelp
+    Exit Sub
+   End If
   Case Else
    Puts "Error: Unknown options '" + s + "'" + vbCrLf
-   Puts "Type '" + Argv(0) + " --help' for available options." + vbCrLf
+   Puts "Type '" + Argv(0) + " -help' for available options." + vbCrLf
    Exit Sub
   End Select
  Case Else
@@ -251,7 +340,7 @@ Next i
 '///
 If g_objFiles.Count = 0 Then
  Puts "Error: No input files" + vbCrLf
- Puts "Type '" + Argv(0) + " --help' for available options." + vbCrLf
+ Puts "Type '" + Argv(0) + " -help' for available options." + vbCrLf
  Exit Sub
 End If
 '///
@@ -321,15 +410,29 @@ End If
 '///
 Puts "Generating code..." + vbCrLf
 '================================ LLVM ================================
-LLVMInitializeX86TargetInfo
-LLVMInitializeNativeTarget
+If g_bInitAll Then
+ LLVMInitializeAllTargetInfos
+ LLVMInitializeAllTargets
+Else
+ LLVMInitializeX86TargetInfo
+ LLVMInitializeNativeTarget
+End If
 LLVMInitializeAllAsmPrinters
 LLVMInitializeAllAsmParsers
+'///
+If g_sTriple = vbNullString Then
+ g_sTriple = "i686-pc-mingw32"
+ If g_sFeatures = vbNullString Then
+  g_sFeatures = "i686,mmx,sse,sse2,sse3"
+ End If
+Else
+ g_sFeatures = g_sFeatures + vbNullChar
+End If
 '///
 g_hModule = LLVMModuleCreateWithName(StrPtr(StrConv("Module1", vbFromUnicode)))
 g_hBuilder = LLVMCreateBuilder
 '///
-s = StrConv("i686-pc-mingw32", vbFromUnicode)
+s = StrConv(g_sTriple, vbFromUnicode)
 i = StrPtr(s)
 g_hTargetData = LLVMCreateTargetData(i)
 LLVMSetTarget g_hModule, i
@@ -411,7 +514,7 @@ If g_nOptimizeLevel > 0 Then
  hPass = LLVMCreatePassManager
  LLVMAddTargetData g_hTargetData, hPass
  LLVMCreateStandardModulePasses hPass, g_nOptimizeLevel, _
- (g_nOptimizeLevel = LLVMCodeGenOpt_Less) And 1&, 1, _
+ g_bOptimizeForSize And 1&, 1, _
  (g_nOptimizeLevel >= LLVMCodeGenOpt_Default) And 1&, 1, 0, nThreshold
  '///
  LLVMRunPassManager hPass, g_hModule
@@ -426,11 +529,15 @@ Dim hPass As Long
 Dim hStream As Long, hRawStream As Long
 '///
 If g_bAssemble Then
- LLVMWriteBitcodeToFile g_hModule, StrPtr(StrConv(App.Path + "\test.bc", vbFromUnicode))
+ If g_sOutputFile = vbNullString Then g_sOutputFile = App.Path + "\test.bc"
+ '///
+ LLVMWriteBitcodeToFile g_hModule, StrPtr(StrConv(g_sOutputFile, vbFromUnicode))
 Else
+ If g_sOutputFile = vbNullString Then g_sOutputFile = App.Path + "\test.ll"
+ '///
  hPass = LLVMCreatePassManager
  LLVMAddTargetData g_hTargetData, hPass
- hStream = Util_CreateOStreamFromFile(App.Path + "\test.ll", LLVMOpenMode_out)
+ hStream = Util_CreateOStreamFromFile(g_sOutputFile, LLVMOpenMode_out)
  hRawStream = LLVMCreateRaw_OS_OStream(hStream)
  LLVMAddPrintModulePass hPass, hRawStream, 0, vbNullChar
  LLVMRunPassManager hPass, g_hModule
@@ -450,10 +557,14 @@ Dim hTargetMachine As Long
 Dim nType As LLVMCodeGenFileType
 '///
 If g_bAssemble Then
- hStream = Util_CreateOStreamFromFile(App.Path + "\test.obj", LLVMOpenMode_out Or LLVMOpenMode_binary)
+ If g_sOutputFile = vbNullString Then g_sOutputFile = App.Path + "\test.obj"
+ '///
+ hStream = Util_CreateOStreamFromFile(g_sOutputFile, LLVMOpenMode_out Or LLVMOpenMode_binary)
  nType = CGFT_ObjectFile
 Else
- hStream = Util_CreateOStreamFromFile(App.Path + "\test.asm", LLVMOpenMode_binary)
+ If g_sOutputFile = vbNullString Then g_sOutputFile = App.Path + "\test.asm"
+ '///
+ hStream = Util_CreateOStreamFromFile(g_sOutputFile, LLVMOpenMode_binary)
  nType = CGFT_AssemblyFile
 End If
 hRawStream = LLVMCreateRaw_OS_OStream(hStream)
@@ -462,7 +573,7 @@ hRawStream = LLVMCreateFormattedRawOStream(hRawStream, 1)
 'hPass = LLVMCreateFunctionPassManagerForModule(g_hModule)
 hPass = LLVMCreatePassManager
 LLVMAddTargetData g_hTargetData, hPass
-hTargetMachine = LLVMCreateTargetMachine("i686-pc-mingw32", "i686,mmx,sse,sse2,sse3")
+hTargetMachine = LLVMCreateTargetMachine(g_sTriple, g_sFeatures)
 If hTargetMachine Then
  If LLVMTargetMachineAddPassesToEmitFile(hTargetMachine, hPass, hRawStream, nType, LLVMCodeGenOpt_Aggressive, 0) = 0 Then
 '  LLVMInitializeFunctionPassManager hPass

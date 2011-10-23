@@ -269,7 +269,7 @@ Friend Function CodegenBinaryOperator(ByVal hValue1 As Long, ByVal objType1 As c
 Dim objType As clsTypeNode
 Dim i As Long
 Dim n(7) As Long
-Dim f1 As Double, f2 As Double
+Dim f1 As Double, f2 As Double, f3 As Double
 Dim n1 As Currency, n2 As Currency
 '///
 Select Case nOperator
@@ -443,8 +443,15 @@ Case Else
    n2 = LLVMConstIntGetSExtValue(hValue2)
    CopyMemory f1, n1, 8&
    CopyMemory f2, n2, 8&
-   f1 = f1 ^ f2
-   CodegenBinaryOperator = LLVMConstReal(LLVMDoubleType, f1)
+   On Error Resume Next
+   Err.Clear
+   f3 = f1 ^ f2
+   If Err.Number Then
+    PrintError "Error when calculating " + CStr(f1) + "^" + CStr(f2), -1, -1
+    Exit Function
+   Else
+    CodegenBinaryOperator = LLVMConstReal(LLVMDoubleType, f3)
+   End If
   Else
    n(0) = hValue1
    n(1) = hValue2
