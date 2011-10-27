@@ -20,27 +20,27 @@ Dim c As Long
 h = GetStdHandle(STD_INPUT_HANDLE)
 ReadFile h, c, 1, j, ByVal 0
 '///calc factorial
-PrintInteger Factorial
-'PrintInteger Factorial(c And &HF&)
+'PrintInteger Factorial
+PrintInteger Factorial(c And &HF&)
 End Sub
 
-'Private Function Factorial(ByVal n As Long) As Long
-'Dim i As Long, j As Long
-'j = 1
-'For i = n To 1 step -1
-' j = j * i
-'Next i
-'Factorial = j
-'End Function
-
-Private Function Factorial(optional ByVal n As Long=wc\453) As Long
-If n <= 1 Then Factorial = 1 Else Factorial = Factorial(n - 1) * n
-'const OXZ as long=wc\453
-'Factorial=OXZ-n
+Private Function Factorial(ByVal n As Long) As LongLong
+Dim i As Long, j As LongLong
+j = 1
+For i = n To 1 step -1
+ j = j * i
+Next i
+Factorial = j
 End Function
 
-Private Sub PrintInteger(ByVal n As Long)
-Dim h As Long, i As Long
+'Private Function Factorial(optional ByVal n As Long=wc\453) As Long
+'If n <= 1 Then Factorial = 1 Else Factorial = Factorial(n - 1) * n
+''const OXZ as long=wc\453
+''Factorial=OXZ-n
+'End Function
+
+Private Sub PrintInteger(ByVal n As LongLong)
+Dim h As Long, i As LongLong
 h = GetStdHandle(STD_ERROR_HANDLE)
 If n < 0 Then
  n = -n

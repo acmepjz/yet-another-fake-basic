@@ -346,7 +346,7 @@ If Not m_objFunction Is Nothing Then
    If (objArgDeclareList.ArgumentFlags(i) And 1&) = 0 Then 'declaration is ByRef xxx
     If m_objArgList(1).ArgumentFlags(i) And 1& Then 'ByVal xxx
      h = obj.Codegen(objContext, 0, 0, 0, 0)
-     h = g_objTypeMgr.CodegenTypeConversion(h, objSrcType, nSrcFlags, g_objIntrinsicDataTypes(vbLong), 0, False)
+     h = g_objTypeMgr.CodegenTypeConversion(objContext, h, objSrcType, nSrcFlags, g_objIntrinsicDataTypes(vbLong), 0, False)
      hArguments(i) = LLVMBuildIntToPtr(g_hBuilder, h, LLVMPointerType(objDestType.Handle, 0), StrPtr(StrConv("ByValTemp", vbFromUnicode)))
     Else
      On Error Resume Next
@@ -365,7 +365,7 @@ If Not m_objFunction Is Nothing Then
        LLVMBuildStore g_hBuilder, h, j
        hArguments(i) = LLVMBuildPointerCast(g_hBuilder, j, LLVMPointerType(objDestType.Handle, 0), StrPtr(StrConv("ByRefTemp", vbFromUnicode)))
       Else
-       h = g_objTypeMgr.CodegenTypeConversion(h, objSrcType, nSrcFlags, objDestType, nDestFlags, False)
+       h = g_objTypeMgr.CodegenTypeConversion(objContext, h, objSrcType, nSrcFlags, objDestType, nDestFlags, False)
        j = objContext.CurrentFunction.GetTempVariable(objContext, objDestType, nTag)
        LLVMBuildStore g_hBuilder, h, j
        hArguments(i) = j
@@ -382,7 +382,7 @@ If Not m_objFunction Is Nothing Then
     End If
    Else
     h = obj.Codegen(objContext, 0, 0, 0, 0)
-    hArguments(i) = g_objTypeMgr.CodegenTypeConversion(h, objSrcType, nSrcFlags, objDestType, nDestFlags, False)
+    hArguments(i) = g_objTypeMgr.CodegenTypeConversion(objContext, h, objSrcType, nSrcFlags, objDestType, nDestFlags, False)
    End If
    '///
   Next i

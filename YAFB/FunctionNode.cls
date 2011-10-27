@@ -65,14 +65,14 @@ Case prop_endblockhandle
 End Select
 End Function
 
-Friend Function GetNewVariable(ByVal objContext As clsVerifyContext, ByVal objType As clsTypeNode, ByVal sName As String) As Long
-Dim hBuilder As Long
-'///
-hBuilder = LLVMCreateBuilder
-LLVMPositionBuilderAtEnd hBuilder, m_hFunctionVariableBlock
-GetNewVariable = LLVMBuildAlloca(hBuilder, objType.Handle, StrPtr(StrConv(sName, vbFromUnicode)))
-LLVMDisposeBuilder hBuilder
-End Function
+'Friend Function GetNewVariable(ByVal objContext As clsVerifyContext, ByVal objType As clsTypeNode, ByVal sName As String) As Long
+'Dim hBuilder As Long
+''///
+'hBuilder = LLVMCreateBuilder
+'LLVMPositionBuilderAtEnd hBuilder, m_hFunctionVariableBlock
+'GetNewVariable = LLVMBuildAlloca(hBuilder, objType.Handle, StrPtr(StrConv(sName, vbFromUnicode)))
+'LLVMDisposeBuilder hBuilder
+'End Function
 
 Friend Function GetTempVariable(ByVal objContext As clsVerifyContext, ByVal objType As clsTypeNode, ByVal nTag As Long) As Long
 Dim hBuilder As Long
@@ -108,12 +108,27 @@ Dim i As Long, j As Long
 For i = 1 To m_nTempVarCount
  j = m_tTempVariable(i).nTag
  If j Then
-  If j = nTag Or nTag = 0 Then
-   m_tTempVariable(i).objType.CodegenDefaultDestructor objContext, m_tTempVariable(i).hVariable
-   m_tTempVariable(i).nTag = 0
-  End If
+  If j = nTag Or nTag = 0 Then RemoveTempVariableByIndex objContext, i
  End If
 Next i
+End Sub
+
+Friend Sub RemoveTempVariable(ByVal objContext As clsVerifyContext, ByVal hVariable As Long)
+Dim i As Long
+'///
+For i = 1 To m_nTempVarCount
+ If m_tTempVariable(i).hVariable = hVariable Then
+  RemoveTempVariableByIndex objContext, i
+  Exit For
+ End If
+Next i
+End Sub
+
+Friend Sub RemoveTempVariableByIndex(ByVal objContext As clsVerifyContext, ByVal i As Long)
+If m_tTempVariable(i).nTag Then
+ m_tTempVariable(i).objType.CodegenDefaultDestructor objContext, m_tTempVariable(i).hVariable
+ m_tTempVariable(i).nTag = 0
+End If
 End Sub
 
 Friend Property Get EndBlockHandle() As Long

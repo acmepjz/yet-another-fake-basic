@@ -73,14 +73,13 @@ Case 4 'const
    Set objSrcType = m_objInitValue.GetType(nSrcFlags)
    If m_objDataType Is Nothing Then
     '///automatic data detect
-    Select Case objSrcType.DataType
-    Case vbByte, vbInteger, vbLong, vbBoolean, vbSingle, vbDouble, vbCurrency, vbString, vbDate
+    If objSrcType.Flags And &H10& Then
      SetDataTypeFromString objSrcType.Name
-    Case Else
+    Else
      PrintError "Const variable can't have data type '" + objSrcType.Name + "'", m_t.nLine, m_t.nColumn
      m_hConst = 0
      Exit Function
-    End Select
+    End If
    End If
    m_objDataType.FindDataType Nothing '???
    '///check type conversion
@@ -93,7 +92,7 @@ Case 4 'const
     Exit Function
    End Select
    '///codegen
-   m_hConst = g_objTypeMgr.CodegenTypeConversion(m_hConst, objSrcType, nSrcFlags, objDestType, nDestFlags, True)
+   m_hConst = g_objTypeMgr.CodegenTypeConversion(Nothing, m_hConst, objSrcType, nSrcFlags, objDestType, nDestFlags, True)
    '///over
   End If
   IASTNode_GetProperty = m_hConst
@@ -158,12 +157,7 @@ Case 0 'dim
   '///global variable
   m_hVariable = LLVMAddGlobal(g_hModule, m_hType, ByVal StrPtr(StrConv(m_t.sValue, vbFromUnicode)))
   '/// ???
-  Select Case m_objDataType.GetDataType.DataType
-  Case vbByte, vbInteger, vbLong, vbBoolean, vbCurrency
-   LLVMSetInitializer m_hVariable, LLVMConstInt(m_hType, 0@, 1)
-  Case vbSingle, vbDouble, vbDate
-   LLVMSetInitializer m_hVariable, LLVMConstReal(m_hType, 0#)
-  End Select
+  LLVMSetInitializer m_hVariable, m_objDataType.GetDataType.CodegenDefaultValue(objContext)
  Else
   'TODO: class member variable
  End If
@@ -360,12 +354,10 @@ Case 4 'const
     .Phase = verify_dim
     If Not obj.Verify(.This) Then Exit Function
    End With
-   Select Case m_objDataType.GetDataType.DataType
-   Case vbByte, vbInteger, vbLong, vbBoolean, vbSingle, vbDouble, vbCurrency, vbString, vbDate
-   Case Else
+   If (m_objDataType.GetDataType.Flags And &H10&) = 0 Then
     PrintError "Const variable can't have data type '" + m_objDataType.GetDataType.Name + "'", m_t.nLine, m_t.nColumn
     Exit Function
-   End Select
+   End If
   End If
   '///verify expression
   If Not m_objInitValue.Verify(objContext) Then Exit Function

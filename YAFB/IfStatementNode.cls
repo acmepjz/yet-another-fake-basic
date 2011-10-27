@@ -93,14 +93,7 @@ For i = 1 To m_nCount
  hValue = m_objCondition(i).Codegen(objContext, nParam1, nParam2, nParam3, nParam4)
  Set objType = m_objCondition(i).GetType(nFlags)
  '///
- Select Case objType.DataType
- Case vbByte, vbInteger, vbLong, vbBoolean, vbCurrency
-  hValue = LLVMBuildICmp(g_hBuilder, LLVMIntNE, hValue, LLVMConstInt(objType.Handle, 0@, 1), lp)
- Case vbSingle, vbDouble
-  hValue = LLVMBuildFCmp(g_hBuilder, LLVMRealUNE, hValue, LLVMConstReal(objType.Handle, 0#), lp)
- Case Else
-  Panic
- End Select
+ hValue = objType.CodegenConvertToI1(objContext, hValue, lp)
  '///
  hTmpBlock = LLVMAppendBasicBlock(hFunction, lp2)
  LLVMBuildCondBr g_hBuilder, hValue, hBlock(i), hTmpBlock
@@ -158,13 +151,10 @@ End If
 If nPhase = verify_all Then
  For i = 1 To m_nCount
   Set objType = m_objCondition(i).GetType(nFlags)
-  Select Case objType.DataType
-  Case vbByte, vbInteger, vbLong, vbBoolean, vbCurrency
-  Case vbSingle, vbDouble
-  Case Else
+  If (objType.Flags And &H20&) = 0 Then
    PrintError "Data type '" + objType.Name + "' can't use for condition of 'If' statement", -1, -1
    Exit Function
-  End Select
+  End If
  Next i
 End If
 '///

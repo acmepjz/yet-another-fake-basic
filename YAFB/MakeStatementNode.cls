@@ -86,7 +86,7 @@ Set objSrcType = m_objRHS.GetType(nSrcFlags)
 Set obj = m_objLHS
 Set objDestType = obj.GetType(nDestFlags)
 '///
-hValue = g_objTypeMgr.CodegenTypeConversion(hValue, objSrcType, nSrcFlags, objDestType, nDestFlags, False)
+hValue = g_objTypeMgr.CodegenTypeConversion(objContext, hValue, objSrcType, nSrcFlags, objDestType, nDestFlags, False)
 IASTNode_Codegen = LLVMBuildStore(g_hBuilder, hValue, hVariable)
 End Function
 
