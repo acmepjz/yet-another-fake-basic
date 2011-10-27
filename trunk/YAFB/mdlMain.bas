@@ -42,6 +42,7 @@ Public g_sOutputFile As String
 
 Public g_sTriple As String, g_sFeatures As String
 Public g_nDefaultCC As LLVMCallConv
+Public g_nWordSize As Long
 
 Public g_bErrorHandling As Boolean
 
@@ -194,6 +195,8 @@ PrintHelp "-e", "Enables error checking and handling (TEST ONLY)"
 PrintHelp "-triple <string>", "Target triple to assemble for, see -version for available targets. Default value is 'i686-pc-mingw32'"
 PrintHelp "-features <string>", "Target features. Default value is 'i686,mmx,sse,sse2,sse3'. Type 'help' for avaliable features."
 PrintHelp "-version", "Display the version of this program"
+PrintHelp "-w32", "Set pointer size to 32-bit (4 bytes) (default)"
+PrintHelp "-w64", "Set pointer size to 64-bit (8 bytes)"
 End Sub
 
 Public Sub ShowVersion()
@@ -235,6 +238,7 @@ g_bAssemble = True
 g_bLink = True
 g_nOptimizeLevel = LLVMCodeGenOpt_Default
 g_nDefaultCC = LLVMX86StdcallCallConv
+g_nWordSize = 4
 '///
 If App.LogMode <> 1 Then
  'test only
@@ -326,6 +330,10 @@ For i = 1 To Argc - 1
    Puts "Type '" + Argv(0) + " -help' for available options." + vbCrLf
    Exit Sub
   End Select
+ Case "-w32"
+  g_nWordSize = 4
+ Case "-w64"
+  g_nWordSize = 8
  Case Else
   Select Case LCase(Right(s, 4))
   Case ".vbp"

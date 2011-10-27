@@ -115,7 +115,7 @@ If m_nCondCount > 0 Then
    hValue = LLVMBuildLoad(g_hBuilder, hVariable, lp2)
    '///
    LLVMBuildCondBr g_hBuilder, _
-   g_objTypeMgr.CodegenBinaryOperator(hValue, objDestType, _
+   g_objTypeMgr.CodegenBinaryOperator(objContext, hValue, objDestType, _
    m_objCond0(i).Codegen(objContext, 0, 0, 0, 0), objSrcType, nType, Nothing, False), _
    hBlock, hBlockNext
   Case keyword_to
@@ -125,13 +125,13 @@ If m_nCondCount > 0 Then
    hValue = LLVMBuildLoad(g_hBuilder, hVariable, lp2)
    '///
    LLVMBuildCondBr g_hBuilder, _
-   g_objTypeMgr.CodegenBinaryOperator(hValue, objDestType, _
+   g_objTypeMgr.CodegenBinaryOperator(objContext, hValue, objDestType, _
    m_objCond0(i).Codegen(objContext, 0, 0, 0, 0), objSrcType, token_ge, Nothing, False), _
    hBlockNext2, hBlockNext
    '///
    LLVMPositionBuilderAtEnd g_hBuilder, hBlockNext2
    LLVMBuildCondBr g_hBuilder, _
-   g_objTypeMgr.CodegenBinaryOperator(hValue, objDestType, _
+   g_objTypeMgr.CodegenBinaryOperator(objContext, hValue, objDestType, _
    m_objCond1(i).Codegen(objContext, 0, 0, 0, 0), objSrcType, token_le, Nothing, False), _
    hBlock, hBlockNext
   Case Else

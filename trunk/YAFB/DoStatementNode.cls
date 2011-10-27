@@ -57,14 +57,7 @@ If hBlockDoCondition Then
  nFlags = 0
  Set objType = m_objDoCondition.GetType(nFlags)
  '///
- Select Case objType.DataType
- Case vbByte, vbInteger, vbLong, vbBoolean, vbCurrency
-  hValue = LLVMBuildICmp(g_hBuilder, LLVMIntNE, hValue, LLVMConstInt(objType.Handle, 0@, 1), lp)
- Case vbSingle, vbDouble
-  hValue = LLVMBuildFCmp(g_hBuilder, LLVMRealUNE, hValue, LLVMConstReal(objType.Handle, 0#), lp)
- Case Else
-  Panic
- End Select
+ hValue = objType.CodegenConvertToI1(objContext, hValue, lp)
  '///
  If m_nFlags And 1& Then 'Do Until
   LLVMBuildCondBr g_hBuilder, hValue, m_hEndBlock, hBlockDo
@@ -89,14 +82,7 @@ If Not m_objLoopCondition Is Nothing Then
  nFlags = 0
  Set objType = m_objLoopCondition.GetType(nFlags)
  '///
- Select Case objType.DataType
- Case vbByte, vbInteger, vbLong, vbBoolean, vbCurrency
-  hValue = LLVMBuildICmp(g_hBuilder, LLVMIntNE, hValue, LLVMConstInt(objType.Handle, 0@, 1), lp)
- Case vbSingle, vbDouble
-  hValue = LLVMBuildFCmp(g_hBuilder, LLVMRealUNE, hValue, LLVMConstReal(objType.Handle, 0#), lp)
- Case Else
-  Panic
- End Select
+ hValue = objType.CodegenConvertToI1(objContext, hValue, lp)
  '///
  If m_nFlags And 2& Then 'Loop Until
   LLVMBuildCondBr g_hBuilder, hValue, m_hEndBlock, hBlockDo
@@ -142,26 +128,20 @@ If objContext.Phase = verify_all Then
   '///
   nFlags = 0
   Set objType = m_objDoCondition.GetType(nFlags)
-  Select Case objType.DataType
-  Case vbByte, vbInteger, vbLong, vbBoolean, vbCurrency
-  Case vbSingle, vbDouble
-  Case Else
+  If (objType.Flags And &H10&) = 0 Then
    PrintError "Data type '" + objType.Name + "' can't use for condition of 'Do' statement", -1, -1
    Exit Function
-  End Select
+  End If
  End If
  If Not m_objLoopCondition Is Nothing Then
   If Not m_objLoopCondition.Verify(objContext) Then Exit Function
   '///
   nFlags = 0
   Set objType = m_objLoopCondition.GetType(nFlags)
-  Select Case objType.DataType
-  Case vbByte, vbInteger, vbLong, vbBoolean, vbCurrency
-  Case vbSingle, vbDouble
-  Case Else
+  If (objType.Flags And &H10&) = 0 Then
    PrintError "Data type '" + objType.Name + "' can't use for condition of 'Loop' statement", -1, -1
    Exit Function
-  End Select
+  End If
  End If
 End If
 '///

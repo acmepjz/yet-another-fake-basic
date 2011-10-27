@@ -46,7 +46,7 @@ Case action_const_codegen
     Exit Function
    End If
    '///
-   m_hConst = g_objTypeMgr.CodegenUnaryOperator(hValue1, objType1, m_nOperatorType, m_objType, True)
+   m_hConst = g_objTypeMgr.CodegenUnaryOperator(Nothing, hValue1, objType1, m_nOperatorType, m_objType, True)
   Case 2
    hValue1 = m_objSubNode(0).GetProperty(action_const_codegen)
    If hValue1 = 0 Then Exit Function
@@ -61,7 +61,7 @@ Case action_const_codegen
     Exit Function
    End If
    '///
-   m_hConst = g_objTypeMgr.CodegenBinaryOperator(hValue1, objType1, hValue2, objType2, m_nOperatorType, m_objType, True)
+   m_hConst = g_objTypeMgr.CodegenBinaryOperator(Nothing, hValue1, objType1, hValue2, objType2, m_nOperatorType, m_objType, True)
   End Select
  End If
  IASTNode_GetProperty = m_hConst
@@ -136,13 +136,13 @@ Select Case m_nOperandCount
 Case 1
  hValue1 = m_objSubNode(0).Codegen(objContext, 0, 0, 0, 0)
  Set objType1 = m_objSubNode(0).GetType(nFlags1)
- IASTNode_Codegen = g_objTypeMgr.CodegenUnaryOperator(hValue1, objType1, m_nOperatorType, m_objType, False)
+ IASTNode_Codegen = g_objTypeMgr.CodegenUnaryOperator(objContext, hValue1, objType1, m_nOperatorType, m_objType, False)
 Case 2
  hValue1 = m_objSubNode(0).Codegen(objContext, 0, 0, 0, 0)
  hValue2 = m_objSubNode(1).Codegen(objContext, 0, 0, 0, 0)
  Set objType1 = m_objSubNode(0).GetType(nFlags1)
  Set objType2 = m_objSubNode(1).GetType(nFlags1)
- IASTNode_Codegen = g_objTypeMgr.CodegenBinaryOperator(hValue1, objType1, hValue2, objType2, m_nOperatorType, m_objType, False)
+ IASTNode_Codegen = g_objTypeMgr.CodegenBinaryOperator(objContext, hValue1, objType1, hValue2, objType2, m_nOperatorType, m_objType, False)
 End Select
 End Function
 

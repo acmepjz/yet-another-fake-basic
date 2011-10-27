@@ -17,7 +17,7 @@ Private Declare Sub CopyMemory Lib "kernel32.dll" Alias "RtlMoveMemory" (ByRef D
 
 '0=failed
 '1=OK
-'TODO:boolean, etc.
+'TODO:currency, etc.
 Friend Function CheckTypeConversion(ByVal objSrcType As clsTypeNode, ByVal nSrcFlags As Long, ByVal objDestType As clsTypeNode, ByVal nDestFlags As Long) As Long
 Dim nSrcType As VbVarType
 Dim nDestType As VbVarType
@@ -30,8 +30,8 @@ nDestType = objDestType.DataType
 CheckTypeConversion = 1
 End Function
 
-'TODO:boolean, string, etc.
-Friend Function CodegenTypeConversion(ByVal hValue As Long, ByVal objSrcType As clsTypeNode, ByVal nSrcFlags As Long, ByVal objDestType As clsTypeNode, ByVal nDestFlags As Long, ByVal bIsConstant As Boolean) As Long
+'TODO:currency, string, etc.
+Friend Function CodegenTypeConversion(ByVal objContext As clsVerifyContext, ByVal hValue As Long, ByVal objSrcType As clsTypeNode, ByVal nSrcFlags As Long, ByVal objDestType As clsTypeNode, ByVal nDestFlags As Long, ByVal bIsConstant As Boolean) As Long
 Dim nSrcType As VbVarType
 Dim nDestType As VbVarType
 Dim lp As Long, s As String
@@ -48,92 +48,79 @@ s = StrConv("CastTemp", vbFromUnicode)
 lp = StrPtr(s)
 '///
 Select Case nDestType
-Case vbByte
- Select Case nSrcType
- Case vbInteger, vbLong, vbBoolean
-  If bIsConstant Then
-   CodegenTypeConversion = LLVMConstIntCast(hValue, objDestType.Handle, 1)
-  Else
-   CodegenTypeConversion = LLVMBuildIntCast(g_hBuilder, hValue, objDestType.Handle, lp)
-  End If
- Case vbSingle, vbDouble
-  If bIsConstant Then
-   CodegenTypeConversion = LLVMConstFPToUI(hValue, objDestType.Handle)
-  Else
-   CodegenTypeConversion = LLVMBuildFPToUI(g_hBuilder, hValue, objDestType.Handle, lp)
-  End If
- End Select
-Case vbInteger, vbLong
- Select Case nSrcType
- Case vbByte
-  If bIsConstant Then
-   CodegenTypeConversion = LLVMConstZExt(hValue, objDestType.Handle)
-  Else
-   CodegenTypeConversion = LLVMBuildZExt(g_hBuilder, hValue, objDestType.Handle, lp)
-  End If
- Case vbInteger, vbBoolean
-  If bIsConstant Then
-   CodegenTypeConversion = LLVMConstSExt(hValue, objDestType.Handle)
-  Else
-   CodegenTypeConversion = LLVMBuildSExt(g_hBuilder, hValue, objDestType.Handle, lp)
-  End If
- Case vbLong
-  If bIsConstant Then
-   CodegenTypeConversion = LLVMConstIntCast(hValue, objDestType.Handle, 0)
-  Else
-   CodegenTypeConversion = LLVMBuildIntCast(g_hBuilder, hValue, objDestType.Handle, lp)
-  End If
- Case vbSingle, vbDouble
-  If bIsConstant Then
-   CodegenTypeConversion = LLVMConstFPToSI(hValue, objDestType.Handle)
-  Else
-   CodegenTypeConversion = LLVMBuildFPToSI(g_hBuilder, hValue, objDestType.Handle, lp)
-  End If
- End Select
-Case vbSingle, vbDouble
- Select Case nSrcType
- Case vbByte
-  If bIsConstant Then
-   CodegenTypeConversion = LLVMConstUIToFP(hValue, objDestType.Handle)
-  Else
-   CodegenTypeConversion = LLVMBuildUIToFP(g_hBuilder, hValue, objDestType.Handle, lp)
-  End If
- Case vbInteger, vbLong, vbBoolean
-  If bIsConstant Then
-   CodegenTypeConversion = LLVMConstSIToFP(hValue, objDestType.Handle)
-  Else
-   CodegenTypeConversion = LLVMBuildSIToFP(g_hBuilder, hValue, objDestType.Handle, lp)
-  End If
- Case vbSingle, vbDouble
-  If bIsConstant Then
-   CodegenTypeConversion = LLVMConstFPCast(hValue, objDestType.Handle)
-  Else
-   CodegenTypeConversion = LLVMBuildFPCast(g_hBuilder, hValue, objDestType.Handle, lp)
-  End If
- End Select
 Case vbBoolean
- Select Case nSrcType
- Case vbByte, vbInteger, vbLong
-  If bIsConstant Then
-   hValue = LLVMConstICmp(LLVMIntNE, hValue, LLVMConstInt(objSrcType.Handle, 0@, 1))
-   CodegenTypeConversion = LLVMConstSExt(hValue, objDestType.Handle)
-  Else
-   hValue = LLVMBuildICmp(g_hBuilder, LLVMIntNE, hValue, LLVMConstInt(objSrcType.Handle, 0@, 1), lp)
-   CodegenTypeConversion = LLVMBuildSExt(g_hBuilder, hValue, objDestType.Handle, lp)
-  End If
- Case vbSingle, vbDouble
-  If bIsConstant Then
-   hValue = LLVMConstFCmp(LLVMRealUNE, hValue, LLVMConstReal(objSrcType.Handle, 0#))
-   CodegenTypeConversion = LLVMConstSExt(hValue, objDestType.Handle)
-  Else
-   hValue = LLVMBuildFCmp(g_hBuilder, LLVMRealUNE, hValue, LLVMConstReal(objSrcType.Handle, 0#), lp)
-   CodegenTypeConversion = LLVMBuildSExt(g_hBuilder, hValue, objDestType.Handle, lp)
-  End If
+ hValue = objSrcType.CodegenConvertToI1(objContext, hValue, lp, bIsConstant)
+ If bIsConstant Then
+  CodegenTypeConversion = LLVMConstSExt(hValue, objDestType.Handle)
+ Else
+  CodegenTypeConversion = LLVMBuildSExt(g_hBuilder, hValue, objDestType.Handle, lp)
+ End If
+Case Else
+ Select Case objDestType.Flags And &HF&
+ Case 1, 2 'signed and unsigned integer
+  Select Case objSrcType.Flags And &HF&
+  Case 1, 2 'signed and unsigned integer
+   If objDestType.Size <= objSrcType.Size Then
+    If bIsConstant Then
+     CodegenTypeConversion = LLVMConstIntCast(hValue, objDestType.Handle, (objDestType.Flags And &HF&) = 1)
+    Else
+     CodegenTypeConversion = LLVMBuildIntCast(g_hBuilder, hValue, objDestType.Handle, lp)
+    End If
+   ElseIf (objSrcType.Flags And &HF&) = 1 Then
+    If bIsConstant Then
+     CodegenTypeConversion = LLVMConstSExt(hValue, objDestType.Handle)
+    Else
+     CodegenTypeConversion = LLVMBuildSExt(g_hBuilder, hValue, objDestType.Handle, lp)
+    End If
+   Else
+    If bIsConstant Then
+     CodegenTypeConversion = LLVMConstZExt(hValue, objDestType.Handle)
+    Else
+     CodegenTypeConversion = LLVMBuildZExt(g_hBuilder, hValue, objDestType.Handle, lp)
+    End If
+   End If
+  Case 3 'flost number
+   If (objDestType.Flags And &HF&) = 1 Then
+    If bIsConstant Then
+     CodegenTypeConversion = LLVMConstFPToSI(hValue, objDestType.Handle)
+    Else
+     CodegenTypeConversion = LLVMBuildFPToSI(g_hBuilder, hValue, objDestType.Handle, lp)
+    End If
+   Else
+    If bIsConstant Then
+     CodegenTypeConversion = LLVMConstFPToUI(hValue, objDestType.Handle)
+    Else
+     CodegenTypeConversion = LLVMBuildFPToUI(g_hBuilder, hValue, objDestType.Handle, lp)
+    End If
+   End If
+  End Select
+ Case 3 'float number
+  Select Case objSrcType.Flags And &HF&
+  Case 1 'signed integer
+   If bIsConstant Then
+    CodegenTypeConversion = LLVMConstSIToFP(hValue, objDestType.Handle)
+   Else
+    CodegenTypeConversion = LLVMBuildSIToFP(g_hBuilder, hValue, objDestType.Handle, lp)
+   End If
+  Case 2 'unsigned integer
+   If bIsConstant Then
+    CodegenTypeConversion = LLVMConstUIToFP(hValue, objDestType.Handle)
+   Else
+    CodegenTypeConversion = LLVMBuildUIToFP(g_hBuilder, hValue, objDestType.Handle, lp)
+   End If
+  Case 3 'flost number
+   If bIsConstant Then
+    CodegenTypeConversion = LLVMConstFPCast(hValue, objDestType.Handle)
+   Else
+    CodegenTypeConversion = LLVMBuildFPCast(g_hBuilder, hValue, objDestType.Handle, lp)
+   End If
+  End Select
  End Select
 End Select
+'///
 End Function
 
-'TODO:string, etc.
+'TODO:currency, string, etc.
 Friend Function CheckUnaryOperator(ByVal objType1 As clsTypeNode, ByVal nOperator As enumTokenType) As clsTypeNode
 Dim nType1 As VbVarType
 '///
@@ -144,50 +131,89 @@ End If
 '///
 nType1 = objType1.DataType
 '///
-Select Case nType1
-Case vbByte, vbInteger
- Set CheckUnaryOperator = g_objIntrinsicDataTypes(vbInteger)
-Case vbLong
- Set CheckUnaryOperator = g_objIntrinsicDataTypes(vbLong)
-Case vbBoolean
- Select Case nOperator
- Case token_minus
-  Set CheckUnaryOperator = g_objIntrinsicDataTypes(vbInteger)
+Select Case nOperator
+Case keyword_not
+ Select Case nType1
  Case Else
-  Set CheckUnaryOperator = objType1
+  Select Case objType1.Flags And &HF&
+  Case 1, 2 'integers
+   Set CheckUnaryOperator = objType1
+  Case 3 'float number
+   Set CheckUnaryOperator = g_objIntrinsicDataTypes(vbLong)
+  End Select
  End Select
-Case vbSingle, vbDouble
- Select Case nOperator
- Case keyword_not
+Case token_plus
+ Set CheckUnaryOperator = objType1
+Case token_minus
+ Select Case nType1
+ Case vbByte
+  Set CheckUnaryOperator = g_objIntrinsicDataTypes(vbInteger)
+ Case vbUnsignedInteger, vbBoolean
   Set CheckUnaryOperator = g_objIntrinsicDataTypes(vbLong)
- Case Else
+ Case vbUnsignedLong
+  Set CheckUnaryOperator = g_objIntrinsicDataTypes(vbLong)
+  'Set CheckUnaryOperator = g_objIntrinsicDataTypes(vbLongLong)
+ Case vbUnsignedLongLong
+  Set CheckUnaryOperator = g_objIntrinsicDataTypes(vbLongLong)
+ Case vbUIntPtr_t
+  If g_nWordSize > 4 Then
+   Set CheckUnaryOperator = g_objIntrinsicDataTypes(vbLongLong)
+  Else
+   Set CheckUnaryOperator = g_objIntrinsicDataTypes(vbLong)
+   'Set CheckUnaryOperator = g_objIntrinsicDataTypes(vbLongLong)
+  End If
+ Case vbCurrency, vbDecimal
   Set CheckUnaryOperator = objType1
+ Case Else
+  Select Case objType1.Flags And &HF&
+  Case 1, 3 'signed integer and float numbers
+   Set CheckUnaryOperator = objType1
+  End Select
  End Select
 End Select
 End Function
 
-Friend Function CodegenUnaryOperator(ByVal hValue1 As Long, ByVal objType1 As clsTypeNode, ByVal nOperator As enumTokenType, ByVal objDestType As clsTypeNode, ByVal bIsConstant As Boolean) As Long
+'TODO:currency, string, etc.
+'TODO:overflow, etc.
+Friend Function CodegenUnaryOperator(ByVal objContext As clsVerifyContext, ByVal hValue1 As Long, ByVal objType1 As clsTypeNode, ByVal nOperator As enumTokenType, ByVal objDestType As clsTypeNode, ByVal bIsConstant As Boolean) As Long
+Dim s As String, lp As Long
+'///
 Select Case nOperator
 Case token_plus
  CodegenUnaryOperator = hValue1
 Case token_minus
- hValue1 = CodegenTypeConversion(hValue1, objType1, 0, objDestType, 0, bIsConstant)
+ s = StrConv("NegTemp", vbFromUnicode)
+ lp = StrPtr(s)
+ '///
+ hValue1 = CodegenTypeConversion(objContext, hValue1, objType1, 0, objDestType, 0, bIsConstant)
  Select Case objDestType.DataType
- Case vbSingle, vbDouble
+ Case vbDecimal
   If bIsConstant Then
-   CodegenUnaryOperator = LLVMConstFNeg(hValue1)
+   hValue1 = LLVMConstInsertValue(hValue1, LLVMConstXor(LLVMConstExtractValue(hValue1, 2&, 1), LLVMConstInt(LLVMInt8Type, 0.0128@, 0)), 2&, 1)
+   CodegenUnaryOperator = hValue1
   Else
-   CodegenUnaryOperator = LLVMBuildFNeg(g_hBuilder, hValue1, StrPtr(StrConv("NegTemp", vbFromUnicode)))
+   hValue1 = LLVMBuildInsertValue(g_hBuilder, hValue1, _
+   LLVMBuildXor(g_hBuilder, LLVMBuildExtractValue(g_hBuilder, hValue1, 2&, lp), LLVMConstInt(LLVMInt8Type, 0.0128@, 0), lp), 2&, lp)
+   CodegenUnaryOperator = hValue1
   End If
  Case Else
-  If bIsConstant Then
-   CodegenUnaryOperator = LLVMConstNeg(hValue1)
-  Else
-   CodegenUnaryOperator = LLVMBuildNeg(g_hBuilder, hValue1, StrPtr(StrConv("NegTemp", vbFromUnicode)))
-  End If
+  Select Case objDestType.Flags And &HF&
+  Case 3
+   If bIsConstant Then
+    CodegenUnaryOperator = LLVMConstFNeg(hValue1)
+   Else
+    CodegenUnaryOperator = LLVMBuildFNeg(g_hBuilder, hValue1, lp)
+   End If
+  Case Else
+   If bIsConstant Then
+    CodegenUnaryOperator = LLVMConstNeg(hValue1)
+   Else
+    CodegenUnaryOperator = LLVMBuildNeg(g_hBuilder, hValue1, lp)
+   End If
+  End Select
  End Select
 Case keyword_not
- hValue1 = CodegenTypeConversion(hValue1, objType1, 0, objDestType, 0, bIsConstant)
+ hValue1 = CodegenTypeConversion(objContext, hValue1, objType1, 0, objDestType, 0, bIsConstant)
  If bIsConstant Then
   CodegenUnaryOperator = LLVMConstNot(hValue1)
  Else
@@ -196,20 +222,45 @@ Case keyword_not
 End Select
 End Function
 
-'TODO:string, etc.
+'TODO:currency, string, etc.
 Friend Function CheckBinaryOperator(ByVal objType1 As clsTypeNode, ByVal objType2 As clsTypeNode, ByVal nOperator As enumTokenType) As clsTypeNode
 Dim nType1 As VbVarType
 Dim nType2 As VbVarType
+Dim nFlags1 As Long
+Dim nFlags2 As Long
+Dim nMaxSize As Long
 '///
 nType1 = objType1.DataType
 nType2 = objType2.DataType
+nFlags1 = objType1.Flags
+nFlags2 = objType2.Flags
 '///
 Select Case nOperator
 Case keyword_xor, keyword_or, keyword_and, keyword_eqv, keyword_imp
  If nType1 = vbBoolean And nType2 = vbBoolean Then
   Set CheckBinaryOperator = objType1
- Else
-  Set CheckBinaryOperator = g_objIntrinsicDataTypes(vbLong) 'TODO: Byte, Integer, etc.
+ ElseIf (nFlags1 And &HF&) = 3 Or (nFlags2 And &HF&) = 3 Then
+  If ((nFlags1 And &HF&) = 1 Or (nFlags1 And &HF&) = 2) And objType1.Size >= 4 Then
+   Set CheckBinaryOperator = objType1
+  ElseIf ((nFlags2 And &HF&) = 1 Or (nFlags2 And &HF&) = 2) And objType2.Size >= 4 Then
+   Set CheckBinaryOperator = objType2
+  Else
+   Set CheckBinaryOperator = g_objIntrinsicDataTypes(vbLong)
+  End If
+ ElseIf ((nFlags1 And &HF&) = 1 Or (nFlags1 And &HF&) = 2) And ((nFlags2 And &HF&) = 1 Or (nFlags2 And &HF&) = 2) Then
+  If objType1.Size >= objType2.Size Then
+   If nType1 = vbBoolean Then
+    Set CheckBinaryOperator = g_objIntrinsicDataTypes(vbInteger)
+   Else
+    Set CheckBinaryOperator = objType1
+   End If
+  Else
+   If nType2 = vbBoolean Then
+    Set CheckBinaryOperator = g_objIntrinsicDataTypes(vbInteger)
+   Else
+    Set CheckBinaryOperator = objType2
+   End If
+  End If
  End If
 Case token_gt, token_lt, token_ge, token_le, token_equal, token_ne
  Set CheckBinaryOperator = g_objIntrinsicDataTypes(vbBoolean)
@@ -219,67 +270,118 @@ Case token_and
  'TODO:
  Set CheckBinaryOperator = g_objIntrinsicDataTypes(vbString)
 Case token_plus, token_minus, token_asterisk
- Select Case nType1
- Case vbSingle
-  Select Case nType2
-  Case vbByte, vbInteger, vbBoolean, vbSingle
-   Set CheckBinaryOperator = g_objIntrinsicDataTypes(vbSingle)
-  Case vbLong, vbDouble
+ If (nFlags1 And &HF&) = 3 Or (nFlags2 And &HF&) = 3 Then
+  If ((nFlags1 And &HF&) = 1 Or (nFlags1 And &HF&) = 2) And objType1.Size <= 2 Then
+   Set CheckBinaryOperator = objType2
+  ElseIf ((nFlags2 And &HF&) = 1 Or (nFlags2 And &HF&) = 2) And objType2.Size <= 2 Then
+   Set CheckBinaryOperator = objType1
+  ElseIf (nFlags1 And &HF&) = 3 And (nFlags2 And &HF&) = 3 Then
+   If objType1.Size >= objType2.Size Then
+    Set CheckBinaryOperator = objType1
+   Else
+    Set CheckBinaryOperator = objType2
+   End If
+  Else
    Set CheckBinaryOperator = g_objIntrinsicDataTypes(vbDouble)
-  End Select
- Case vbDouble
-  Set CheckBinaryOperator = g_objIntrinsicDataTypes(vbDouble)
- Case vbByte, vbInteger, vbBoolean
-  Select Case nType2
-  Case vbByte, vbInteger, vbBoolean
-   Set CheckBinaryOperator = g_objIntrinsicDataTypes(vbInteger)
-  Case vbLong
-   Set CheckBinaryOperator = g_objIntrinsicDataTypes(vbLong)
-  Case vbSingle
-   Set CheckBinaryOperator = g_objIntrinsicDataTypes(vbSingle)
-  Case vbDouble
-   Set CheckBinaryOperator = g_objIntrinsicDataTypes(vbDouble)
-  End Select
- Case vbLong
-  Select Case nType2
-  Case vbSingle, vbDouble
-   Set CheckBinaryOperator = g_objIntrinsicDataTypes(vbDouble)
-  Case vbByte, vbInteger, vbBoolean, vbLong
-   Set CheckBinaryOperator = g_objIntrinsicDataTypes(vbLong)
-  End Select
- End Select
+  End If
+ ElseIf ((nFlags1 And &HF&) = 1 Or (nFlags1 And &HF&) = 2) And ((nFlags2 And &HF&) = 1 Or (nFlags2 And &HF&) = 2) Then
+  nMaxSize = objType1.Size
+  If nMaxSize < objType2.Size Then nMaxSize = objType2.Size
+  If (nFlags1 And &HF&) = 1 Or (nFlags2 And &HF&) = 1 Or nOperator = token_minus Then
+   Select Case nMaxSize
+   Case 1
+    Set CheckBinaryOperator = g_objIntrinsicDataTypes(vbSignedByte)
+   Case 2
+    Set CheckBinaryOperator = g_objIntrinsicDataTypes(vbInteger)
+   Case 4
+    Set CheckBinaryOperator = g_objIntrinsicDataTypes(vbLong)
+   Case 8
+    Set CheckBinaryOperator = g_objIntrinsicDataTypes(vbLongLong)
+   End Select
+  Else
+   Select Case nMaxSize
+   Case 1
+    Set CheckBinaryOperator = g_objIntrinsicDataTypes(vbByte)
+   Case 2
+    Set CheckBinaryOperator = g_objIntrinsicDataTypes(vbUnsignedInteger)
+   Case 4
+    Set CheckBinaryOperator = g_objIntrinsicDataTypes(vbUnsignedLong)
+   Case 8
+    Set CheckBinaryOperator = g_objIntrinsicDataTypes(vbUnsignedLongLong)
+   End Select
+  End If
+ End If
 Case token_backslash, keyword_mod
- Select Case nType1
- Case vbByte, vbInteger, vbBoolean
-  Select Case nType2
-  Case vbByte, vbInteger, vbBoolean
-   Set CheckBinaryOperator = g_objIntrinsicDataTypes(vbInteger)
-  Case Else
+ If (nFlags1 And &HF&) = 3 Or (nFlags2 And &HF&) = 3 Then
+  If ((nFlags1 And &HF&) = 1 Or (nFlags1 And &HF&) = 2) Then
+   If objType1.Size <= 4 Then
+    Set CheckBinaryOperator = g_objIntrinsicDataTypes(vbLong)
+   Else
+    Set CheckBinaryOperator = g_objIntrinsicDataTypes(vbLongLong)
+   End If
+  ElseIf ((nFlags2 And &HF&) = 1 Or (nFlags2 And &HF&) = 2) Then
+   If objType2.Size <= 4 Then
+    Set CheckBinaryOperator = g_objIntrinsicDataTypes(vbLong)
+   Else
+    Set CheckBinaryOperator = g_objIntrinsicDataTypes(vbLongLong)
+   End If
+  Else
    Set CheckBinaryOperator = g_objIntrinsicDataTypes(vbLong)
-  End Select
- Case Else
-  Set CheckBinaryOperator = g_objIntrinsicDataTypes(vbLong)
- End Select
+  End If
+ ElseIf ((nFlags1 And &HF&) = 1 Or (nFlags1 And &HF&) = 2) And ((nFlags2 And &HF&) = 1 Or (nFlags2 And &HF&) = 2) Then
+  nMaxSize = objType1.Size
+  If nMaxSize < objType2.Size Then nMaxSize = objType2.Size
+  If (nFlags1 And &HF&) = 1 Or (nFlags2 And &HF&) = 1 Then
+   Select Case nMaxSize
+   Case 1
+    Set CheckBinaryOperator = g_objIntrinsicDataTypes(vbSignedByte)
+   Case 2
+    Set CheckBinaryOperator = g_objIntrinsicDataTypes(vbInteger)
+   Case 4
+    Set CheckBinaryOperator = g_objIntrinsicDataTypes(vbLong)
+   Case 8
+    Set CheckBinaryOperator = g_objIntrinsicDataTypes(vbLongLong)
+   End Select
+  Else
+   Select Case nMaxSize
+   Case 1
+    Set CheckBinaryOperator = g_objIntrinsicDataTypes(vbByte)
+   Case 2
+    Set CheckBinaryOperator = g_objIntrinsicDataTypes(vbUnsignedInteger)
+   Case 4
+    Set CheckBinaryOperator = g_objIntrinsicDataTypes(vbUnsignedLong)
+   Case 8
+    Set CheckBinaryOperator = g_objIntrinsicDataTypes(vbUnsignedLongLong)
+   End Select
+  End If
+ End If
 Case token_slash, token_power
  Set CheckBinaryOperator = g_objIntrinsicDataTypes(vbDouble)
 End Select
 End Function
 
-Friend Function CodegenBinaryOperator(ByVal hValue1 As Long, ByVal objType1 As clsTypeNode, ByVal hValue2 As Long, ByVal objType2 As clsTypeNode, ByVal nOperator As enumTokenType, ByVal objDestType As clsTypeNode, ByVal bIsConstant As Boolean) As Long
+'TODO:currency, string, etc.
+'TODO:overflow, etc.
+Friend Function CodegenBinaryOperator(ByVal objContext As clsVerifyContext, ByVal hValue1 As Long, ByVal objType1 As clsTypeNode, ByVal hValue2 As Long, ByVal objType2 As clsTypeNode, ByVal nOperator As enumTokenType, ByVal objDestType As clsTypeNode, ByVal bIsConstant As Boolean) As Long
 Dim objType As clsTypeNode
 Dim i As Long
 Dim n(7) As Long
 Dim f1 As Double, f2 As Double, f3 As Double
 Dim n1 As Currency, n2 As Currency
+Dim nFlags1 As Long
+Dim nFlags2 As Long
+'///
+nFlags1 = objType1.Flags
+nFlags2 = objType2.Flags
 '///
 Select Case nOperator
 Case token_gt, token_lt, token_ge, token_le, token_equal, token_ne
  Set objType = CheckBinaryOperator(objType1, objType2, token_plus) '??? TODO:
- hValue1 = CodegenTypeConversion(hValue1, objType1, 0, objType, 0, bIsConstant)
- hValue2 = CodegenTypeConversion(hValue2, objType2, 0, objType, 0, bIsConstant)
+ hValue1 = CodegenTypeConversion(objContext, hValue1, objType1, 0, objType, 0, bIsConstant)
+ hValue2 = CodegenTypeConversion(objContext, hValue2, objType2, 0, objType, 0, bIsConstant)
  '///
- Select Case objType.DataType
- Case vbSingle, vbDouble
+ Select Case objType.Flags And &HF&
+ Case 3 'float number
   Select Case nOperator
   Case token_gt
    i = LLVMRealOGT
@@ -300,26 +402,110 @@ Case token_gt, token_lt, token_ge, token_le, token_equal, token_ne
   Else
    hValue1 = LLVMBuildFCmp(g_hBuilder, i, hValue1, hValue2, StrPtr(StrConv("CmpTemp", vbFromUnicode)))
   End If
- Case Else
-  Select Case nOperator
-  Case token_gt
-   i = LLVMIntSGT
-  Case token_lt
-   i = LLVMIntSLT
-  Case token_ge
-   i = LLVMIntSGE
-  Case token_le
-   i = LLVMIntSLE
-  Case token_equal
-   i = LLVMIntEQ
-  Case token_ne
-   i = LLVMIntNE
-  End Select
-  '///
-  If bIsConstant Then
-   hValue1 = LLVMConstICmp(i, hValue1, hValue2)
-  Else
-   hValue1 = LLVMBuildICmp(g_hBuilder, i, hValue1, hValue2, StrPtr(StrConv("CmpTemp", vbFromUnicode)))
+ Case 1, 2 'signed and unsigned integer
+  If (nFlags1 And &HF&) = 2 And (nFlags1 And &HF&) = 2 Then
+   Select Case nOperator
+   Case token_gt
+    i = LLVMIntUGT
+   Case token_lt
+    i = LLVMIntULT
+   Case token_ge
+    i = LLVMIntUGE
+   Case token_le
+    i = LLVMIntULE
+   Case token_equal
+    i = LLVMIntEQ
+   Case token_ne
+    i = LLVMIntNE
+   End Select
+   '///
+   If bIsConstant Then
+    hValue1 = LLVMConstICmp(i, hValue1, hValue2)
+   Else
+    hValue1 = LLVMBuildICmp(g_hBuilder, i, hValue1, hValue2, StrPtr(StrConv("CmpTemp", vbFromUnicode)))
+   End If
+  ElseIf ((nFlags1 And &HF&) = 1 And (objType1.Size > objType2.Size Or (nFlags2 And &HF&) = 1)) Or _
+  ((nFlags2 And &HF&) = 1 And objType1.Size < objType2.Size) Then
+   Select Case nOperator
+   Case token_gt
+    i = LLVMIntSGT
+   Case token_lt
+    i = LLVMIntSLT
+   Case token_ge
+    i = LLVMIntSGE
+   Case token_le
+    i = LLVMIntSLE
+   Case token_equal
+    i = LLVMIntEQ
+   Case token_ne
+    i = LLVMIntNE
+   End Select
+   '///
+   If bIsConstant Then
+    hValue1 = LLVMConstICmp(i, hValue1, hValue2)
+   Else
+    hValue1 = LLVMBuildICmp(g_hBuilder, i, hValue1, hValue2, StrPtr(StrConv("CmpTemp", vbFromUnicode)))
+   End If
+  Else 'XXX: signed/unsigned mismatch
+   '///
+   PrintWarning "signed/unsigned mismatch: '" + objType1.Name + "' and '" + objType2.Name + "'", -1, -1
+   '///
+   If (nFlags1 And &HF&) = 2 Then
+    Select Case nOperator
+    Case token_gt
+     i = LLVMIntUGT
+    Case token_lt
+     i = LLVMIntULT
+    Case token_ge
+     i = LLVMIntUGE
+    Case token_le
+     i = LLVMIntULE
+    Case token_equal
+     i = LLVMIntEQ
+    Case token_ne
+     i = LLVMIntNE
+    End Select
+   Else
+    i = hValue1
+    hValue1 = hValue2
+    hValue2 = i
+    Select Case nOperator
+    Case token_gt
+     i = LLVMIntULT
+    Case token_lt
+     i = LLVMIntUGT
+    Case token_ge
+     i = LLVMIntULE
+    Case token_le
+     i = LLVMIntUGE
+    Case token_equal
+     i = LLVMIntEQ
+    Case token_ne
+     i = LLVMIntNE
+    End Select
+   End If
+   '///now assume op1 is unsigned, op2 is signed
+   If bIsConstant Then
+    n(0) = LLVMConstICmp(i, hValue1, hValue2)
+    Select Case i
+    Case LLVMIntULT, LLVMIntULE, LLVMIntEQ
+     n(1) = LLVMConstICmp(LLVMIntSGE, hValue2, LLVMConstInt(objType.Handle, 0@, 1))
+     hValue1 = LLVMConstAnd(n(0), n(1))
+    Case LLVMIntUGT, LLVMIntUGE, LLVMIntNE
+     n(1) = LLVMConstICmp(LLVMIntSLT, hValue2, LLVMConstInt(objType.Handle, 0@, 1))
+     hValue1 = LLVMConstOr(n(0), n(1))
+    End Select
+   Else
+    n(0) = LLVMBuildICmp(g_hBuilder, i, hValue1, hValue2, StrPtr(StrConv("CmpTemp", vbFromUnicode)))
+    Select Case i
+    Case LLVMIntULT, LLVMIntULE, LLVMIntEQ
+     n(1) = LLVMBuildICmp(g_hBuilder, LLVMIntSGE, hValue2, LLVMConstInt(objType.Handle, 0@, 1), StrPtr(StrConv("CmpTemp", vbFromUnicode)))
+     hValue1 = LLVMBuildAnd(g_hBuilder, n(0), n(1), StrPtr(StrConv("CmpTemp", vbFromUnicode)))
+    Case LLVMIntUGT, LLVMIntUGE, LLVMIntNE
+     n(1) = LLVMBuildICmp(g_hBuilder, LLVMIntSLT, hValue2, LLVMConstInt(objType.Handle, 0@, 1), StrPtr(StrConv("CmpTemp", vbFromUnicode)))
+     hValue1 = LLVMBuildOr(g_hBuilder, n(0), n(1), StrPtr(StrConv("CmpTemp", vbFromUnicode)))
+    End Select
+   End If
   End If
  End Select
  '///
@@ -333,8 +519,8 @@ Case token_gt, token_lt, token_ge, token_le, token_equal, token_ne
 Case keyword_is
  'TODO:
 Case Else
- hValue1 = CodegenTypeConversion(hValue1, objType1, 0, objDestType, 0, bIsConstant)
- hValue2 = CodegenTypeConversion(hValue2, objType2, 0, objDestType, 0, bIsConstant)
+ hValue1 = CodegenTypeConversion(objContext, hValue1, objType1, 0, objDestType, 0, bIsConstant)
+ hValue2 = CodegenTypeConversion(objContext, hValue2, objType2, 0, objDestType, 0, bIsConstant)
  '///
  Select Case nOperator
  Case keyword_xor
@@ -348,7 +534,7 @@ Case Else
    CodegenBinaryOperator = LLVMConstNot(LLVMConstXor(hValue1, hValue2))
   Else
    CodegenBinaryOperator = LLVMBuildNot(g_hBuilder, _
-   LLVMBuildXor(g_hBuilder, hValue1, hValue2, StrPtr(StrConv("XorTemp", vbFromUnicode))), _
+   LLVMBuildXor(g_hBuilder, hValue1, hValue2, StrPtr(StrConv("EqvTemp", vbFromUnicode))), _
    StrPtr(StrConv("EqvTemp", vbFromUnicode)))
   End If
  Case keyword_or
@@ -362,7 +548,7 @@ Case Else
    CodegenBinaryOperator = LLVMConstOr(LLVMConstNot(hValue1), hValue2)
   Else
    CodegenBinaryOperator = LLVMBuildOr(g_hBuilder, _
-   LLVMBuildNot(g_hBuilder, hValue1, StrPtr(StrConv("NotTemp", vbFromUnicode))) _
+   LLVMBuildNot(g_hBuilder, hValue1, StrPtr(StrConv("ImpTemp", vbFromUnicode))) _
    , hValue2, StrPtr(StrConv("ImpTemp", vbFromUnicode)))
   End If
  Case keyword_and
@@ -372,14 +558,14 @@ Case Else
    CodegenBinaryOperator = LLVMBuildAnd(g_hBuilder, hValue1, hValue2, StrPtr(StrConv("AndTemp", vbFromUnicode)))
   End If
  Case token_plus
-  Select Case objDestType.DataType
-  Case vbSingle, vbDouble
+  Select Case objDestType.Flags And &HF&
+  Case 3
    If bIsConstant Then
     CodegenBinaryOperator = LLVMConstFAdd(hValue1, hValue2)
    Else
     CodegenBinaryOperator = LLVMBuildFAdd(g_hBuilder, hValue1, hValue2, StrPtr(StrConv("AddTemp", vbFromUnicode)))
    End If
-  Case Else
+  Case 1, 2
    If bIsConstant Then
     CodegenBinaryOperator = LLVMConstAdd(hValue1, hValue2)
    Else
@@ -387,14 +573,14 @@ Case Else
    End If
   End Select
  Case token_minus
-  Select Case objDestType.DataType
-  Case vbSingle, vbDouble
+  Select Case objDestType.Flags And &HF&
+  Case 3
    If bIsConstant Then
     CodegenBinaryOperator = LLVMConstFSub(hValue1, hValue2)
    Else
     CodegenBinaryOperator = LLVMBuildFSub(g_hBuilder, hValue1, hValue2, StrPtr(StrConv("SubTemp", vbFromUnicode)))
    End If
-  Case Else
+  Case 1, 2
    If bIsConstant Then
     CodegenBinaryOperator = LLVMConstSub(hValue1, hValue2)
    Else
@@ -402,32 +588,56 @@ Case Else
    End If
   End Select
  Case token_asterisk
-  Select Case objDestType.DataType
-  Case vbSingle, vbDouble
+  Select Case objDestType.Flags And &HF&
+  Case 3
    If bIsConstant Then
     CodegenBinaryOperator = LLVMConstFMul(hValue1, hValue2)
    Else
     CodegenBinaryOperator = LLVMBuildFMul(g_hBuilder, hValue1, hValue2, StrPtr(StrConv("MulTemp", vbFromUnicode)))
    End If
-  Case Else
+  Case 1 'signed
    If bIsConstant Then
-    CodegenBinaryOperator = LLVMConstMul(hValue1, hValue2)
+    CodegenBinaryOperator = LLVMConstNSWMul(hValue1, hValue2)
    Else
-    CodegenBinaryOperator = LLVMBuildMul(g_hBuilder, hValue1, hValue2, StrPtr(StrConv("MulTemp", vbFromUnicode)))
+    CodegenBinaryOperator = LLVMBuildNSWMul(g_hBuilder, hValue1, hValue2, StrPtr(StrConv("MulTemp", vbFromUnicode)))
+   End If
+  Case 2 'unsigned
+   If bIsConstant Then
+    CodegenBinaryOperator = LLVMConstNUWMul(hValue1, hValue2)
+   Else
+    CodegenBinaryOperator = LLVMBuildNUWMul(g_hBuilder, hValue1, hValue2, StrPtr(StrConv("MulTemp", vbFromUnicode)))
    End If
   End Select
  Case token_backslash
-  If bIsConstant Then
-   CodegenBinaryOperator = LLVMConstSDiv(hValue1, hValue2)
-  Else
-   CodegenBinaryOperator = LLVMBuildSDiv(g_hBuilder, hValue1, hValue2, StrPtr(StrConv("SubTemp", vbFromUnicode)))
-  End If
+  Select Case objDestType.Flags And &HF&
+  Case 1 'signed
+   If bIsConstant Then
+    CodegenBinaryOperator = LLVMConstSDiv(hValue1, hValue2)
+   Else
+    CodegenBinaryOperator = LLVMBuildSDiv(g_hBuilder, hValue1, hValue2, StrPtr(StrConv("SubTemp", vbFromUnicode)))
+   End If
+  Case 2 'unsigned
+   If bIsConstant Then
+    CodegenBinaryOperator = LLVMConstUDiv(hValue1, hValue2)
+   Else
+    CodegenBinaryOperator = LLVMBuildUDiv(g_hBuilder, hValue1, hValue2, StrPtr(StrConv("SubTemp", vbFromUnicode)))
+   End If
+  End Select
  Case keyword_mod
-  If bIsConstant Then
-   CodegenBinaryOperator = LLVMConstSRem(hValue1, hValue2)
-  Else
-   CodegenBinaryOperator = LLVMBuildSRem(g_hBuilder, hValue1, hValue2, StrPtr(StrConv("SubTemp", vbFromUnicode)))
-  End If
+  Select Case objDestType.Flags And &HF&
+  Case 1 'signed
+   If bIsConstant Then
+    CodegenBinaryOperator = LLVMConstSRem(hValue1, hValue2)
+   Else
+    CodegenBinaryOperator = LLVMBuildSRem(g_hBuilder, hValue1, hValue2, StrPtr(StrConv("SubTemp", vbFromUnicode)))
+   End If
+  Case 2 'unsigned
+   If bIsConstant Then
+    CodegenBinaryOperator = LLVMConstURem(hValue1, hValue2)
+   Else
+    CodegenBinaryOperator = LLVMBuildURem(g_hBuilder, hValue1, hValue2, StrPtr(StrConv("SubTemp", vbFromUnicode)))
+   End If
+  End Select
  Case token_slash
   If bIsConstant Then
    CodegenBinaryOperator = LLVMConstFDiv(hValue1, hValue2)

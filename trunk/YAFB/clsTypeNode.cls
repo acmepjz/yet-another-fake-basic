@@ -16,9 +16,21 @@ Option Explicit
 Implements IASTNode
 
 Private m_nFlags As Long
+'bit 0-3:
+'0=other
+'1=can be bit cast to signed integer (Integer,Long,Boolean,etc.) Currency isn't of this type
+'2=can be bit cast to unsigned integer (Byte,etc.)
+'3=can be bit cast to float number (Single,Double,Date)
+'etc.
+'///
+'&H10&=can be Const
+'&H20&=can be convert to i1
+'&H40&=can be used for 'For' variable (CodegenOneValue avaliable)
 '&H80000000=intrinsic
 
 Private m_nType As VbVarType
+
+Private m_nSize As Long
 
 Private m_t As typeToken
 
@@ -27,6 +39,54 @@ Private m_t As typeToken
 '================================ LLVM ================================
 
 Private m_hType As Long
+
+Private m_hDefaultValue As Long
+Private m_hOneValue As Long
+
+Friend Function CodegenConvertToI1(ByVal objContext As clsVerifyContext, ByVal hValue As Long, ByVal lpName As String, Optional ByVal bIsConstant As Boolean) As Long
+'Dim hVariable As Long
+'Dim hConst As Long
+'///
+Select Case m_nFlags And &HF&
+Case 1, 2 'integer
+ If bIsConstant Then
+  CodegenConvertToI1 = LLVMConstICmp(LLVMIntNE, hValue, CodegenDefaultValue(objContext))
+ Else
+  CodegenConvertToI1 = LLVMBuildICmp(g_hBuilder, LLVMIntNE, hValue, CodegenDefaultValue(objContext), lpName)
+ End If
+Case 3 'float point
+ If bIsConstant Then
+  CodegenConvertToI1 = LLVMConstFCmp(LLVMRealUNE, hValue, CodegenDefaultValue(objContext))
+ Else
+  CodegenConvertToI1 = LLVMBuildFCmp(g_hBuilder, LLVMRealUNE, hValue, CodegenDefaultValue(objContext), lpName)
+ End If
+Case Else
+ Select Case m_nType
+ Case vbCurrency
+  If bIsConstant Then
+   CodegenConvertToI1 = LLVMConstICmp(LLVMIntNE, hValue, CodegenDefaultValue(objContext))
+  Else
+   CodegenConvertToI1 = LLVMBuildICmp(g_hBuilder, LLVMIntNE, hValue, CodegenDefaultValue(objContext), lpName)
+  End If
+ Case vbDecimal
+'  '///dirty workaround
+'  hVariable = objContext.CurrentFunction.GetTempVariable(objContext, Me, -1)
+'  LLVMBuildStore g_hBuilder, hValue, hVariable
+'  hConst = LLVMConstInt(LLVMInt32Type, 0@, 1)
+'  CodegenConvertToI1 = LLVMBuildOr(g_hBuilder, LLVMBuildOr(g_hBuilder, _
+'  LLVMBuildICmp, _
+'  LLVMBuildICmp, lpName), _
+'  LLVMBuildICmp, lpName)
+'  'blah blah blah... we don't need dirty workaround
+'  objContext.CurrentFunction.RemoveTempVariable hVariable
+  CodegenConvertToI1 = LLVMBuildOr(g_hBuilder, _
+  LLVMBuildICmp(g_hBuilder, LLVMIntNE, LLVMBuildExtractValue(g_hBuilder, hValue, 3, lpName), LLVMConstInt(LLVMInt32Type, 0@, 1), lpName), _
+  LLVMBuildICmp(g_hBuilder, LLVMIntNE, LLVMBuildExtractValue(g_hBuilder, hValue, 4, lpName), LLVMConstInt(LLVMInt64Type, 0@, 1), lpName), lpName)
+ Case Else
+  'TODO: other
+ End Select
+End Select
+End Function
 
 Private Function IASTNode_Codegen(ByVal objContext As clsVerifyContext, ByVal nParam1 As Long, ByVal nParam2 As Long, ByVal nParam3 As Long, ByVal nParam4 As Long) As Long
 'TODO:
@@ -45,13 +105,15 @@ Friend Property Get This() As IASTNode
 Set This = Me
 End Property
 
-Friend Sub SetIntrinsic(ByVal nType As VbVarType, ByVal sName As String, ByVal hType As Long)
-m_nFlags = &H80000000
+Friend Sub SetIntrinsic(ByVal nType As VbVarType, ByVal sName As String, ByVal hType As Long, ByVal nSize As Long, ByVal nFlags As Long)
+m_nFlags = &H80000000 Or nFlags
 m_nType = nType
+m_nSize = nSize
 m_t.nType = token_id
 m_t.sValue = sName
 m_hType = hType
 Set g_objIntrinsicDataTypes(nType) = Me
+g_objGlobalTable.TypeTable.Add Me, sName
 End Sub
 
 'TODO:other
@@ -80,14 +142,13 @@ Friend Property Get Handle() As Long
 Handle = m_hType
 End Property
 
-'TODO:
+Friend Property Get Size() As Long
+Size = m_nSize
+End Property
+
+'TODO: other (e.g. struct etc.)
 Friend Sub CodegenDefaultConstructor(ByVal objContext As clsVerifyContext, ByVal hVariable As Long)
-Select Case m_nType
-Case vbByte, vbInteger, vbLong, vbBoolean
- LLVMBuildStore g_hBuilder, LLVMConstInt(m_hType, 0@, 1), hVariable
-Case vbSingle, vbDouble
- LLVMBuildStore g_hBuilder, LLVMConstReal(m_hType, 0#), hVariable
-End Select
+LLVMBuildStore g_hBuilder, CodegenDefaultValue(objContext), hVariable
 End Sub
 
 Friend Sub CodegenDefaultDestructor(ByVal objContext As clsVerifyContext, ByVal hVariable As Long)
@@ -106,3 +167,65 @@ Private Function IASTNode_GetProperty(ByVal nProp As enumASTNodeProperty) As Lon
 '
 End Function
 
+Friend Function CodegenDefaultValue(ByVal objContext As clsVerifyContext) As Long
+Dim i(7) As Long
+'///
+If m_hDefaultValue = 0 Then
+ Select Case m_nFlags And &HF&
+ Case 1, 2 'integer
+  m_hDefaultValue = LLVMConstInt(m_hType, 0@, 1)
+ Case 3 'float point
+  m_hDefaultValue = LLVMConstReal(m_hType, 0#)
+ Case Else
+  Select Case m_nType
+  Case vbCurrency
+   m_hDefaultValue = LLVMConstInt(m_hType, 0@, 1)
+  Case vbVariant
+   i(0) = LLVMConstInt(LLVMInt16Type, 0@, 1)
+   i(1) = i(0)
+   i(2) = i(0)
+   i(3) = i(0)
+   i(4) = LLVMConstInt(LLVMInt64Type, 0@, 1)
+   m_hDefaultValue = LLVMConstStruct(i(0), 5, 0)
+  Case vbDecimal
+   i(0) = LLVMConstInt(LLVMInt16Type, 0.0014@, 1)
+   i(1) = LLVMConstInt(LLVMInt8Type, 0@, 1)
+   i(2) = i(1)
+   i(3) = LLVMConstInt(LLVMInt32Type, 0@, 1)
+   i(4) = LLVMConstInt(LLVMInt64Type, 0@, 1)
+   m_hDefaultValue = LLVMConstStruct(i(0), 5, 0)
+  Case Else
+   'TODO: other
+  End Select
+ End Select
+End If
+CodegenDefaultValue = m_hDefaultValue
+End Function
+
+Friend Function CodegenOneValue(ByVal objContext As clsVerifyContext) As Long
+Dim i(7) As Long
+'///
+If m_hOneValue = 0 Then
+ Select Case m_nFlags And &HF&
+ Case 1, 2 'integer
+  m_hOneValue = LLVMConstInt(m_hType, 0.0001@, 1)
+ Case 3 'float point
+  m_hOneValue = LLVMConstReal(m_hType, 1#)
+ Case Else
+  Select Case m_nType
+  Case vbCurrency
+   m_hOneValue = LLVMConstInt(m_hType, 1@, 1)
+  Case vbDecimal
+   i(0) = LLVMConstInt(LLVMInt16Type, 0.0014@, 1)
+   i(1) = LLVMConstInt(LLVMInt8Type, 0@, 1)
+   i(2) = i(1)
+   i(3) = LLVMConstInt(LLVMInt32Type, 0@, 1)
+   i(4) = LLVMConstInt(LLVMInt64Type, 0.0001@, 1)
+   m_hOneValue = LLVMConstStruct(i(0), 5, 0)
+  Case Else
+   'TODO: other
+  End Select
+ End Select
+End If
+CodegenOneValue = m_hOneValue
+End Function

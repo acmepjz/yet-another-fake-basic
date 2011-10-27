@@ -79,6 +79,7 @@ Dim objSrcType As clsTypeNode, nSrcFlags As Long
 Dim objDestType As clsTypeNode, nDestFlags As Long
 Dim hValue As Long
 Dim hVariable As Long
+Dim nTag As Long
 Dim hEndVariable As Long
 Dim hStepVariable As Long
 '///
@@ -89,41 +90,41 @@ Dim hBlockForStepGreaterThanZero As Long
 Dim hBlockForStepLesserThanZero As Long
 Dim hBlockFor As Long
 '///
+nTag = ObjPtr(Me)
+'///
 Set obj = m_objVariable
 Set objDestType = obj.GetType(nDestFlags)
 '///
 nSrcFlags = 0
 Set objSrcType = m_objStartValue.GetType(nSrcFlags)
 '///
-hValue = g_objTypeMgr.CodegenTypeConversion(m_objStartValue.Codegen(objContext, nParam1, nParam2, nParam3, nParam4), _
+hValue = g_objTypeMgr.CodegenTypeConversion(objContext, m_objStartValue.Codegen(objContext, nParam1, nParam2, nParam3, nParam4), _
 objSrcType, nSrcFlags, objDestType, nDestFlags, False)
 '///
 nSrcFlags = 0
 Set objSrcType = m_objEndValue.GetType(nSrcFlags)
 '///
-hEndVariable = objContext.CurrentFunction.GetNewVariable(objContext, objDestType, "ForEndVariable")
+'hEndVariable = objContext.CurrentFunction.GetNewVariable(objContext, objDestType, "ForEndVariable")
+hEndVariable = objContext.CurrentFunction.GetTempVariable(objContext, objDestType, nTag)
 LLVMBuildStore g_hBuilder, _
-g_objTypeMgr.CodegenTypeConversion(m_objEndValue.Codegen(objContext, nParam1, nParam2, nParam3, nParam4), _
+g_objTypeMgr.CodegenTypeConversion(objContext, m_objEndValue.Codegen(objContext, nParam1, nParam2, nParam3, nParam4), _
 objSrcType, nSrcFlags, objDestType, nDestFlags, False), hEndVariable
 '///
 If m_objStepValue Is Nothing Then
  nSrcFlags = nDestFlags
  Set objSrcType = objDestType
  '///
- hStepVariable = objContext.CurrentFunction.GetNewVariable(objContext, objSrcType, "ForStepVariable")
- Select Case objSrcType.DataType
- Case vbByte, vbInteger, vbLong
-  LLVMBuildStore g_hBuilder, LLVMConstInt(objDestType.Handle, 0.0001@, 1), hStepVariable
- Case vbSingle, vbDouble
-  LLVMBuildStore g_hBuilder, LLVMConstReal(objDestType.Handle, 1#), hStepVariable
- End Select
+ 'hStepVariable = objContext.CurrentFunction.GetNewVariable(objContext, objSrcType, "ForStepVariable")
+ hStepVariable = objContext.CurrentFunction.GetTempVariable(objContext, objSrcType, nTag)
+ LLVMBuildStore g_hBuilder, objSrcType.CodegenOneValue(objContext), hStepVariable
 Else
  nSrcFlags = 0
  Set objSrcType = m_objStepValue.GetType(nSrcFlags)
  '///
- hStepVariable = objContext.CurrentFunction.GetNewVariable(objContext, objSrcType, "ForStepVariable")
+ 'hStepVariable = objContext.CurrentFunction.GetNewVariable(objContext, objSrcType, "ForStepVariable")
+ hStepVariable = objContext.CurrentFunction.GetTempVariable(objContext, objSrcType, nTag)
  LLVMBuildStore g_hBuilder, _
- g_objTypeMgr.CodegenTypeConversion(m_objStepValue.Codegen(objContext, nParam1, nParam2, nParam3, nParam4), _
+ g_objTypeMgr.CodegenTypeConversion(objContext, m_objStepValue.Codegen(objContext, nParam1, nParam2, nParam3, nParam4), _
  objSrcType, nSrcFlags, objDestType, nDestFlags, False), hStepVariable
 End If
 '///
@@ -143,9 +144,9 @@ LLVMBuildBr g_hBuilder, hBlockForStepCheckGreaterThanZero
 LLVMPositionBuilderAtEnd g_hBuilder, hBlockForStepCheckGreaterThanZero
 hValue = LLVMBuildLoad(g_hBuilder, hStepVariable, StrPtr(StrConv("StepTemp", vbFromUnicode)))
 Select Case objSrcType.DataType
-Case vbByte
+Case vbByte, vbUnsignedInteger, vbUnsignedLong, vbUnsignedLongLong, vbUIntPtr_t
  hValue = LLVMBuildICmp(g_hBuilder, LLVMIntUGT, hValue, LLVMConstInt(objSrcType.Handle, 0@, 1), StrPtr(StrConv("CmpTemp", vbFromUnicode)))
-Case vbInteger, vbLong
+Case vbSignedByte, vbInteger, vbLong, vbLongLong, vbIntPtr_t, vbCurrency
  hValue = LLVMBuildICmp(g_hBuilder, LLVMIntSGT, hValue, LLVMConstInt(objSrcType.Handle, 0@, 1), StrPtr(StrConv("CmpTemp", vbFromUnicode)))
 Case vbSingle, vbDouble
  hValue = LLVMBuildFCmp(g_hBuilder, LLVMRealOGT, hValue, LLVMConstReal(objSrcType.Handle, 0#), StrPtr(StrConv("CmpTemp", vbFromUnicode)))
@@ -154,9 +155,9 @@ LLVMBuildCondBr g_hBuilder, hValue, hBlockForStepGreaterThanZero, hBlockForStepC
 '///check if step<0
 LLVMPositionBuilderAtEnd g_hBuilder, hBlockForStepCheckLesserThanZero
 Select Case objSrcType.DataType
-Case vbByte
+Case vbByte, vbUnsignedInteger, vbUnsignedLong, vbUnsignedLongLong, vbUIntPtr_t
  hValue = LLVMConstInt(LLVMInt1Type, 0@, 1)
-Case vbInteger, vbLong
+Case vbSignedByte, vbInteger, vbLong, vbLongLong, vbIntPtr_t, vbCurrency
  hValue = LLVMBuildLoad(g_hBuilder, hStepVariable, StrPtr(StrConv("StepTemp", vbFromUnicode)))
  hValue = LLVMBuildICmp(g_hBuilder, LLVMIntSLT, hValue, LLVMConstInt(objSrcType.Handle, 0@, 1), StrPtr(StrConv("CmpTemp", vbFromUnicode)))
 Case vbSingle, vbDouble
@@ -167,14 +168,14 @@ LLVMBuildCondBr g_hBuilder, hValue, hBlockForStepLesserThanZero, hBlockFor
 '///if step>0 then if v>end then over
 LLVMPositionBuilderAtEnd g_hBuilder, hBlockForStepGreaterThanZero
 hValue = LLVMBuildLoad(g_hBuilder, hVariable, StrPtr(StrConv("ForVariableTemp", vbFromUnicode)))
-hValue = g_objTypeMgr.CodegenBinaryOperator(hValue, objDestType, _
+hValue = g_objTypeMgr.CodegenBinaryOperator(objContext, hValue, objDestType, _
 LLVMBuildLoad(g_hBuilder, hEndVariable, StrPtr(StrConv("ForEndTemp", vbFromUnicode))), _
 objDestType, token_gt, Nothing, False)
 LLVMBuildCondBr g_hBuilder, hValue, m_hForEndBlock, hBlockFor
 '///if step<0 then if v<end then over
 LLVMPositionBuilderAtEnd g_hBuilder, hBlockForStepLesserThanZero
 hValue = LLVMBuildLoad(g_hBuilder, hVariable, StrPtr(StrConv("ForVariableTemp", vbFromUnicode)))
-hValue = g_objTypeMgr.CodegenBinaryOperator(hValue, objDestType, _
+hValue = g_objTypeMgr.CodegenBinaryOperator(objContext, hValue, objDestType, _
 LLVMBuildLoad(g_hBuilder, hEndVariable, StrPtr(StrConv("ForEndTemp", vbFromUnicode))), _
 objDestType, token_lt, Nothing, False)
 LLVMBuildCondBr g_hBuilder, hValue, m_hForEndBlock, hBlockFor
@@ -188,13 +189,14 @@ obj.Codegen objContext, nParam1, nParam2, nParam3, nParam4
 objContext.Module.RemoveExitStack
 '///
 hValue = LLVMBuildLoad(g_hBuilder, hVariable, StrPtr(StrConv("ForVariableTemp", vbFromUnicode)))
-hValue = g_objTypeMgr.CodegenBinaryOperator(hValue, objDestType, _
+hValue = g_objTypeMgr.CodegenBinaryOperator(objContext, hValue, objDestType, _
 LLVMBuildLoad(g_hBuilder, hStepVariable, StrPtr(StrConv("StepTemp", vbFromUnicode))), _
 objSrcType, token_plus, objDestType, False)
 LLVMBuildStore g_hBuilder, hValue, hVariable
 LLVMBuildBr g_hBuilder, hBlockForStepCheckGreaterThanZero
 '///over
 LLVMPositionBuilderAtEnd g_hBuilder, m_hForEndBlock
+objContext.CurrentFunction.ResetTempVariable objContext, nTag
 End Function
 
 Private Function IASTNode_GetType(nFlags As Long) As clsTypeNode
@@ -223,12 +225,10 @@ If objContext.Phase = verify_all Then
  Set obj = m_objVariable
  Set objDestType = obj.GetType(nDestFlags)
  '///
- Select Case objDestType.DataType
- Case vbByte, vbInteger, vbLong, vbCurrency, vbSingle, vbDouble, vbDate
- Case Else
+ If (objDestType.Flags And &H40&) = 0 Then
   PrintError "Type mismatch: can't use data type '" + objDestType.Name + "' for 'For' variable", -1, -1
   Exit Function
- End Select
+ End If
  '///
  If Not m_objStartValue.Verify(objContext) Then Exit Function
  nSrcFlags = 0

@@ -111,6 +111,7 @@ End Function
 
 Private Function IASTNode_Verify(ByVal objContext As clsVerifyContext) As Boolean
 Dim i As Long
+Dim hValue As Long
 Dim nLastFlags As Long
 Dim obj As IASTNode
 Dim objSrcType As clsTypeNode, nSrcFlags As Long
@@ -149,22 +150,17 @@ Case verify_all
    If m_objDefault(i) Is Nothing Then
     '///get default value of data type
     Set objDestType = m_obj(i).DataType.GetDataType
-    Select Case objDestType.DataType
-    Case vbByte, vbInteger, vbLong, vbCurrency, vbBoolean
+    hValue = objDestType.CodegenDefaultValue(objContext)
+    '///TODO:
+    If hValue Then
      With New ConstNode
-      .CreateIndirect objDestType, LLVMConstInt(objDestType.Handle, 0@, 1)
+      .CreateIndirect objDestType, hValue
       Set m_objDefault(i) = .This
      End With
-    Case vbSingle, vbDouble
-     With New ConstNode
-      .CreateIndirect objDestType, LLVMConstReal(objDestType.Handle, 0#)
-      Set m_objDefault(i) = .This
-     End With
-    Case Else
-     'TODO:
+    Else
      PrintError "Current default value of data type '" + objDestType.Name + "' is unsupported", -1, -1
      Exit Function
-    End Select
+    End If
    Else
     '///convert data type
     Set objSrcType = m_objDefault(i).GetType(nSrcFlags)
@@ -176,7 +172,7 @@ Case verify_all
     End Select
     With New ConstNode
      .CreateIndirect objDestType, _
-     g_objTypeMgr.CodegenTypeConversion(m_objDefault(i).GetProperty(action_const_codegen), objSrcType, nSrcFlags, objDestType, 0, True)
+     g_objTypeMgr.CodegenTypeConversion(objContext, m_objDefault(i).GetProperty(action_const_codegen), objSrcType, nSrcFlags, objDestType, 0, True)
      Set m_objDefault(i) = .This
     End With
    End If
