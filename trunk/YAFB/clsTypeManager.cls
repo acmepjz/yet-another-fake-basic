@@ -361,7 +361,7 @@ End Select
 End Function
 
 'TODO:currency, string, etc.
-'TODO:overflow, etc.
+'TODO:overflow, etc. (using LLVM intrinsic functions)
 Friend Function CodegenBinaryOperator(ByVal objContext As clsVerifyContext, ByVal hValue1 As Long, ByVal objType1 As clsTypeNode, ByVal hValue2 As Long, ByVal objType2 As clsTypeNode, ByVal nOperator As enumTokenType, ByVal objDestType As clsTypeNode, ByVal bIsConstant As Boolean) As Long
 Dim objType As clsTypeNode
 Dim i As Long
