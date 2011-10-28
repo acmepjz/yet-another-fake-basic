@@ -185,15 +185,15 @@ PrintHelp "-emit-llvm", "Use the LLVM representation for assembler and object fi
 PrintHelp "-o <file>", "Write output to <file>"
 PrintHelp "-O0", "No optimization"
 PrintHelp "-O1", "Less optimization"
-PrintHelp "-O2", "Default optimization"
+PrintHelp "-O2", "Default optimization (default)"
 PrintHelp "-O3", "Aggressive optimization"
 PrintHelp "-Os", "Optimize for size"
 PrintHelp "-Gd", "Use 'cdecl' calling convention"
 PrintHelp "-Gr", "Use 'fastcall' calling convention"
 PrintHelp "-Gz", "Use 'stdcall' calling convention (default)"
-PrintHelp "-e", "Enables error checking and handling (TEST ONLY)"
+PrintHelp "-e", "Enables run-time error checking and handling (TEST ONLY)"
 PrintHelp "-triple <string>", "Target triple to assemble for, see -version for available targets. Default value is 'i686-pc-mingw32'"
-PrintHelp "-features <string>", "Target features. Default value is 'i686,mmx,sse,sse2,sse3'. Type 'help' for avaliable features."
+PrintHelp "-features <string>", "Target features. Default value is 'i686,mmx,cmov,sse,sse2,sse3'. Type 'help' for avaliable features."
 PrintHelp "-version", "Display the version of this program"
 PrintHelp "-w32", "Set pointer size to 32-bit (4 bytes) (default)"
 PrintHelp "-w64", "Set pointer size to 64-bit (8 bytes)"
@@ -431,7 +431,7 @@ LLVMInitializeAllAsmParsers
 If g_sTriple = vbNullString Then
  g_sTriple = "i686-pc-mingw32"
  If g_sFeatures = vbNullString Then
-  g_sFeatures = "i686,mmx,sse,sse2,sse3"
+  g_sFeatures = "i686,mmx,cmov,sse,sse2,sse3"
  End If
 Else
  g_sFeatures = g_sFeatures + vbNullChar

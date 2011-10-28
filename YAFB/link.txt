@@ -1,1 +1,1 @@
-/subsystem:console kernel32.lib "D:\VC6Green\VC98\Lib\msvcrt.lib" test.obj /out:HelloWorld.exe /entry:Main
+/subsystem:console kernel32.lib "D:\VC6Green\VC98\Lib\msvcrt.lib" "F:\Projects\compiler-rt\lib\compiler-rt.lib" test.obj /out:HelloWorld.exe /entry:Main

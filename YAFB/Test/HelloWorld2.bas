@@ -7,18 +7,21 @@ Private Declare Function ReadFile Lib "kernel32.dll" (ByVal hFile As Long, ByRef
 Private Const STD_ERROR_HANDLE As Long = -12&
 Private Const STD_INPUT_HANDLE As Long = -10&
 
-private z as long,zz as variant
+'private z as long,zz as variant
 
 public const xyz=1293+STD_ERROR_HANDLE*STD_INPUT_HANDLE
 public const wc=xyz^2
 
+private hStdErr as long,hStdInput as long
+
 Public Sub Main()
-Dim h As Long
 Dim i As Long, j As Long
 Dim c As Long
+'///
+hstdinput = GetStdHandle(STD_INPUT_HANDLE)
+hstderr=GetStdHandle(STD_ERROR_HANDLE)
 '///input
-h = GetStdHandle(STD_INPUT_HANDLE)
-ReadFile h, c, 1, j, ByVal 0
+ReadFile hstdinput, c, 1, j, ByVal 0
 '///calc factorial
 'PrintInteger Factorial
 PrintInteger Factorial(c And &HF&)
@@ -40,17 +43,16 @@ End Function
 'End Function
 
 Private Sub PrintInteger(ByVal n As LongLong)
-Dim h As Long, i As LongLong
-h = GetStdHandle(STD_ERROR_HANDLE)
+Dim i As LongLong
 If n < 0 Then
  n = -n
- WriteFile h, 45&, 1, 0&, ByVal 0
+ WriteFile hstderr, 45&, 1, 0&, ByVal 0
 End If
 If n = 0 Then
- WriteFile h, &H30&, 1, 0&, ByVal 0
+ WriteFile hstderr, &H30&, 1, 0&, ByVal 0
 Else
  i = n \ 10
  If i > 0 Then PrintInteger i
- WriteFile h, &H30& Or (n Mod 10), 1, 0&, ByVal 0
+ WriteFile hstderr, &H30& Or (n Mod 10), 1, 0&, ByVal 0
 End If
 End Sub
