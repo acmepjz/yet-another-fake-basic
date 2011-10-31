@@ -33,6 +33,7 @@ End Sub
 Private Function IASTNode_GetProperty(ByVal nProp As enumASTNodeProperty) As Long
 Select Case nProp
 Case action_const_codegen
+ If Not CheckConstant(m_hConst) Then Exit Function
  IASTNode_GetProperty = m_hConst
 End Select
 End Function

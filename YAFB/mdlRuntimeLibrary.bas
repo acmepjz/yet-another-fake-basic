@@ -3,7 +3,14 @@ Option Explicit
 
 Public g_objIntrinsicDataTypes(255) As clsTypeNode
 
-Public g_hFunctionPow As Long
+Private g_hFunction(1023) As Long
+
+Public Enum enumIntrinsicFunctions
+ internal_pow = 0
+ internal_memcpy
+ internal_memmove
+ internal_memset
+End Enum
 
 Public g_hTypeVariant As Long
 Public g_hTypeSafeArray As Long
@@ -266,19 +273,53 @@ End With
 End Sub
 
 Public Sub SetupRuntimeLibraryFunctions()
-Dim hType(7) As Long
-Dim hFunctionType As Long
 '///
 LLVMAddTypeName g_hModule, StrPtr(StrConv("VARIANT", vbFromUnicode)), g_hTypeVariant
 LLVMAddTypeName g_hModule, StrPtr(StrConv("SAFEARRAYBOUND", vbFromUnicode)), g_hTypeSafeArrayBound
 LLVMAddTypeName g_hModule, StrPtr(StrConv("SAFEARRAY", vbFromUnicode)), g_hTypeSafeArray
 LLVMAddTypeName g_hModule, StrPtr(StrConv("DECIMAL", vbFromUnicode)), g_hTypeDecimal
 '///
-hType(0) = LLVMDoubleType
-hType(1) = hType(0)
-hFunctionType = LLVMFunctionType(hType(0), hType(0), 2, 0)
-g_hFunctionPow = LLVMAddFunction(g_hModule, StrPtr(StrConv("pow", vbFromUnicode)), hFunctionType)
-LLVMSetLinkage g_hFunctionPow, LLVMExternalLinkage
-'///
 'TODO:other
 End Sub
+
+Public Function RuntimeLibraryGetFunction(ByVal nIndex As enumIntrinsicFunctions) As Long
+Dim hType(7) As Long
+Dim hFunctionType As Long
+Dim hFunction As Long
+'///
+hFunction = g_hFunction(nIndex)
+If hFunction = 0 Then
+ Select Case nIndex
+ Case internal_pow
+  hType(0) = LLVMDoubleType
+  hType(1) = hType(0)
+  hFunctionType = LLVMFunctionType(hType(0), hType(0), 2, 0)
+  hFunction = LLVMAddFunction(g_hModule, StrPtr(StrConv("pow", vbFromUnicode)), hFunctionType)
+  LLVMSetLinkage hFunction, LLVMExternalLinkage
+ Case internal_memcpy
+  hType(0) = LLVMPointerType(LLVMInt8Type, 0)
+  hType(1) = hType(0)
+  hType(2) = g_objIntrinsicDataTypes(vbIntPtr_t).Handle
+  hFunctionType = LLVMFunctionType(LLVMVoidType, hType(0), 3, 0)
+  hFunction = LLVMAddFunction(g_hModule, StrPtr(StrConv("memcpy", vbFromUnicode)), hFunctionType)
+  LLVMSetLinkage hFunction, LLVMExternalLinkage
+ Case internal_memmove
+  hType(0) = LLVMPointerType(LLVMInt8Type, 0)
+  hType(1) = hType(0)
+  hType(2) = g_objIntrinsicDataTypes(vbIntPtr_t).Handle
+  hFunctionType = LLVMFunctionType(LLVMVoidType, hType(0), 3, 0)
+  hFunction = LLVMAddFunction(g_hModule, StrPtr(StrConv("memmove", vbFromUnicode)), hFunctionType)
+  LLVMSetLinkage hFunction, LLVMExternalLinkage
+ Case internal_memset
+  hType(0) = LLVMPointerType(LLVMInt8Type, 0)
+  hType(1) = LLVMInt32Type
+  hType(2) = g_objIntrinsicDataTypes(vbIntPtr_t).Handle
+  hFunctionType = LLVMFunctionType(LLVMVoidType, hType(0), 3, 0)
+  hFunction = LLVMAddFunction(g_hModule, StrPtr(StrConv("memset", vbFromUnicode)), hFunctionType)
+  LLVMSetLinkage hFunction, LLVMExternalLinkage
+ End Select
+ g_hFunction(nIndex) = hFunction
+End If
+'///
+RuntimeLibraryGetFunction = hFunction
+End Function

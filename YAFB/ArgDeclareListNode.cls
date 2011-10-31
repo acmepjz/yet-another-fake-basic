@@ -170,9 +170,13 @@ Case verify_all
      PrintError "Type mismatch: can't convert data type '" + objSrcType.Name + "' to '" + objDestType.Name + "'", -1, -1
      Exit Function
     End Select
+    '///
+    hValue = m_objDefault(i).GetProperty(action_const_codegen)
+    If Not CheckConstant(hValue) Then Exit Function
+    hValue = g_objTypeMgr.CodegenTypeConversion(objContext, hValue, objSrcType, nSrcFlags, objDestType, 0, True)
+    If Not CheckConstant(hValue) Then Exit Function
     With New ConstNode
-     .CreateIndirect objDestType, _
-     g_objTypeMgr.CodegenTypeConversion(objContext, m_objDefault(i).GetProperty(action_const_codegen), objSrcType, nSrcFlags, objDestType, 0, True)
+     .CreateIndirect objDestType, hValue
      Set m_objDefault(i) = .This
     End With
    End If

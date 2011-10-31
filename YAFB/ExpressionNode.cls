@@ -47,6 +47,7 @@ Case action_const_codegen
    End If
    '///
    m_hConst = g_objTypeMgr.CodegenUnaryOperator(Nothing, hValue1, objType1, m_nOperatorType, m_objType, True)
+   If Not CheckConstant(m_hConst) Then Exit Function
   Case 2
    hValue1 = m_objSubNode(0).GetProperty(action_const_codegen)
    If hValue1 = 0 Then Exit Function
@@ -62,6 +63,7 @@ Case action_const_codegen
    End If
    '///
    m_hConst = g_objTypeMgr.CodegenBinaryOperator(Nothing, hValue1, objType1, hValue2, objType2, m_nOperatorType, m_objType, True)
+   If Not CheckConstant(m_hConst) Then Exit Function
   End Select
  End If
  IASTNode_GetProperty = m_hConst
