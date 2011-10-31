@@ -56,6 +56,7 @@ Public g_bInitAll As Boolean
 
 Public g_hModule As Long, g_hBuilder As Long
 
+Public g_hTargetMachine As Long
 Public g_hTargetData As Long
 
 Public Sub Panic()
@@ -225,12 +226,10 @@ Dim hTargetMachine As Long
 Puts "Yet Another Fake Basic Compiler - pre-alpha version" + vbCrLf + _
 App.LegalCopyright + vbCrLf + _
 "Website: http://code.google.com/p/yet-another-fake-basic/" + vbCrLf + vbCrLf
-''///doesn't work, TODO:
-'LLVMInitializeAllTargetInfos
-'LLVMInitializeAllTargets
-''///
-'hTargetMachine = LLVMCreateTargetMachine("help", "help")
-'LLVMDisposeTargetMachine hTargetMachine
+'///
+LLVMInitializeAllTargetInfos
+LLVMInitializeAllTargets
+LLVMPrintVersion
 End Sub
 
 Public Sub ShowTripleHelp()
@@ -449,7 +448,7 @@ Else
 End If
 LLVMInitializeAllAsmPrinters
 LLVMInitializeAllAsmParsers
-'///
+'///get triple and features
 If g_sTriple = vbNullString Then
  g_sTriple = "i686-pc-mingw32"
  If g_sFeatures = vbNullString Then
@@ -458,27 +457,39 @@ If g_sTriple = vbNullString Then
 Else
  g_sFeatures = g_sFeatures + vbNullChar
 End If
-'///
+'///create target machine
+g_hTargetMachine = LLVMCreateTargetMachine(g_sTriple, g_sFeatures)
+If g_hTargetMachine = 0 Then
+ PrintError "Can't create target machine for triple '" + g_sTriple + "'", -1, -1
+ PrintErrorCount
+ Exit Sub
+End If
+'///get target data layout
+s = Space(1024&)
+i = StrPtr(s)
+LLVMTargetMachineGetDataLayout g_hTargetMachine, ByVal i, 2048&
+g_hTargetData = LLVMCreateTargetData(i)
+'///create module
 g_hModule = LLVMModuleCreateWithName(StrPtr(StrConv("Module1", vbFromUnicode)))
 g_hBuilder = LLVMCreateBuilder
-'///
+'///set target and data layout
+'NOTE: we must have data layout in order to make sizeof() works
+LLVMSetDataLayout g_hModule, i
 s = StrConv(g_sTriple, vbFromUnicode)
 i = StrPtr(s)
-g_hTargetData = LLVMCreateTargetData(i)
 LLVMSetTarget g_hModule, i
-LLVMSetDataLayout g_hModule, i
 '///
 SetupRuntimeLibraryFunctions
 '///
 CodegenAll
-'///
+'///verify
 i = 0
 j = LLVMVerifyModule(g_hModule, LLVMPrintMessageAction, i)
 If i Then LLVMDisposeMessage i
 If j <> 0 Then
  PrintError "Compiler internal error", -1, -1
 End If
-'///
+'///final steps
 If g_nErrors = 0 Then RunOptimization
 If g_bEmitLLVM Then
  GenerateLLVMFile
@@ -489,6 +500,7 @@ End If
 LLVMDisposeTargetData g_hTargetData
 LLVMDisposeBuilder g_hBuilder
 LLVMDisposeModule g_hModule
+LLVMDisposeTargetMachine g_hTargetMachine
 '///over
 PrintErrorCount
 End Sub
@@ -586,7 +598,6 @@ Public Sub GenerateObjectFile()
 Dim hFunction As Long
 Dim hPass As Long
 Dim hStream As Long, hRawStream As Long
-Dim hTargetMachine As Long
 Dim nType As LLVMCodeGenFileType
 '///
 If g_bAssemble Then
@@ -606,9 +617,7 @@ hRawStream = LLVMCreateFormattedRawOStream(hRawStream, 1)
 'hPass = LLVMCreateFunctionPassManagerForModule(g_hModule)
 hPass = LLVMCreatePassManager
 LLVMAddTargetData g_hTargetData, hPass
-hTargetMachine = LLVMCreateTargetMachine(g_sTriple, g_sFeatures)
-If hTargetMachine Then
- If LLVMTargetMachineAddPassesToEmitFile(hTargetMachine, hPass, hRawStream, nType, LLVMCodeGenOpt_Aggressive, 0) = 0 Then
+If LLVMTargetMachineAddPassesToEmitFile(g_hTargetMachine, hPass, hRawStream, nType, LLVMCodeGenOpt_Aggressive, 0) = 0 Then
 '  LLVMInitializeFunctionPassManager hPass
 '  hFunction = LLVMGetFirstFunction(g_hModule)
 '  Do Until hFunction = 0
@@ -629,13 +638,9 @@ If hTargetMachine Then
 '   hFunction = LLVMGetNextFunction(hFunction)
 '  Loop
 '  LLVMFinalizeFunctionPassManager hPass
-  LLVMRunPassManager hPass, g_hModule
- Else
-  PrintError "Can't add code generation pass", -1, -1
- End If
- LLVMDisposeTargetMachine hTargetMachine
+ LLVMRunPassManager hPass, g_hModule
 Else
- PrintError "Can't create target machine", -1, -1
+ PrintError "Can't add code generation pass", -1, -1
 End If
 LLVMDisposePassManager hPass
 '///

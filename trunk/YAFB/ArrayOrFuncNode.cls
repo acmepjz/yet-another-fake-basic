@@ -337,6 +337,7 @@ Dim nArgCount As Long
 Dim objSrcType As clsTypeNode, nSrcFlags As Long
 Dim objDestType As clsTypeNode, nDestFlags As Long
 Dim h As Long, i As Long, j As Long, m As Long
+Dim d(3) As Long
 Dim nTag As Long
 '///
 nTag = node_array_or_func
@@ -367,8 +368,10 @@ If Not m_objVariable Is Nothing Then
      End If
     Next i
     '///
-    i = h
-    h = LLVMBuildGEP(g_hBuilder, m_objVariable.VariableHandle, i, 1, StrPtr(StrConv("ArrayTemp", vbFromUnicode)))
+    d(0) = LLVMConstInt(LLVMInt32Type, 0@, 1)
+    d(1) = h
+    'InBounds: no subscript out of range is allowed (?)
+    h = LLVMBuildInBoundsGEP(g_hBuilder, m_objVariable.VariableHandle, d(0), 2, StrPtr(StrConv("ArrayTemp", vbFromUnicode)))
    Else
     'TODO:
     Panic
