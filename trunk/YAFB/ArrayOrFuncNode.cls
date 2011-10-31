@@ -58,6 +58,7 @@ Case action_const_codegen
  If m_hConst = 0 Then
   Set obj = m_objVariable
   m_hConst = obj.GetProperty(action_const_codegen)
+  If Not CheckConstant(m_hConst) Then Exit Function
  End If
  IASTNode_GetProperty = m_hConst
 End Select
@@ -113,7 +114,7 @@ Dim objArgDeclareList As ArgDeclareListNode
 Dim nArgCount As Long
 Dim objSrcType As clsTypeNode, nSrcFlags As Long
 Dim objDestType As clsTypeNode, nDestFlags As Long
-Dim i As Long, m As Long
+Dim i As Long, j As Long, m As Long
 '///
 Select Case objContext.Phase
 Case verify_const
@@ -153,11 +154,40 @@ Case verify_all
   Set obj = m_objArgList(i)
   If Not obj.Verify(objContext) Then Exit Function
  Next i
- '///look up the symbol table
- '///check array (??) TEST ONLY!!! TODO:
- If Not bIsCall And m_nCount = 0 Then
+ '///look up variables
+ If Not bIsCall Then
   Set objVariable = objContext.LookUpVariableTable(m_t.sValue)
+  If Not objVariable Is Nothing Then
+   '///check array (??) TODO: operator(), etc.
+   If objVariable.DimType And &H400& Then
+    If m_nCount > 0 Then 'check if it's "a()"
+     If m_objArgList(1) Is Nothing Then m_nCount = 0 '???
+    End If
+    If m_nCount = 0 Then
+     PrintError "Currently get whole array is unsupported", -1, -1
+     Exit Function
+    End If
+    i = objVariable.DimensionCount
+    If i > 0 Then
+     j = m_objArgList(1).ArgumentCount
+     If i <> j Then
+      PrintError "Fixed-size array '" + m_t.sValue + "' dimension mismatch: '" + CStr(j) + _
+      "' is wrong, should be '" + CStr(i) + "'", m_t.nLine, m_t.nColumn
+      Exit Function
+     End If
+    End If
+   ElseIf objVariable.DataType.GetDataType.DataType = vbVariant Then
+    'TODO:
+    If m_nCount > 0 Then
+     PrintError "Currently 'Variant' as array is unsupported", -1, -1
+     Exit Function
+    End If
+   ElseIf m_nCount > 0 Then
+    Set objVariable = Nothing
+   End If
+  End If
  End If
+ '///look up functions
  If objVariable Is Nothing Then
   If bIsLValue Then
    'TODO:property let/set
@@ -177,7 +207,25 @@ Case verify_all
  '///
  Set m_objVariable = objVariable
  Set m_objFunction = objFunction
- 'TODO:array,etc.
+ '///check array. TODO:etc.
+ If Not objVariable Is Nothing Then
+  If m_nCount > 0 Then
+   For i = 1 To m_objArgList(1).ArgumentCount
+    Set obj = m_objArgList(1).ArgumentNode(i)
+    If obj Is Nothing Then
+     PrintError "Array subscript '" + CStr(i) + "' is not optional", m_t.nLine, m_t.nColumn
+     Exit Function
+    End If
+    '///check type
+    Set objSrcType = obj.GetType(nSrcFlags)
+    If g_objTypeMgr.CheckTypeConversion(objSrcType, nSrcFlags, g_objIntrinsicDataTypes(vbLong), 0) = 0 Then
+     PrintError "Array subscript '" + CStr(i) + "' type mismatch: trying convert '" + _
+     objSrcType.Name + "' to 'Long'", m_t.nLine, m_t.nColumn
+     Exit Function
+    End If
+   Next i
+  End If
+ End If
  '///if it's function call then verify argument
  If Not objFunction Is Nothing Then
   If Not bIsCall Then
@@ -296,10 +344,43 @@ nTag = node_array_or_func
 If Not m_objVariable Is Nothing Then
  Select Case m_objVariable.DimType And &HF&
  Case 0 'dim
-  If bIsLValue Then
-   CodegenEx = m_objVariable.VariableHandle
+  If m_objVariable.DimType And &H400& Then 'array
+   If m_objVariable.DimensionCount > 0 Then 'fixed-size array
+    h = LLVMConstInt(g_objIntrinsicDataTypes(vbIntPtr_t).Handle, 0@, 1)
+    For i = m_objVariable.DimensionCount To 1 Step -1
+     Set obj = m_objArgList(1).ArgumentNode(i)
+     Set objSrcType = obj.GetType(nSrcFlags)
+     '///
+     h = LLVMBuildAdd(g_hBuilder, h, _
+     g_objTypeMgr.CodegenTypeConversion(objContext, _
+     obj.Codegen(objContext, 0, 0, 0, 0), objSrcType, nSrcFlags, g_objIntrinsicDataTypes(vbIntPtr_t), 0, False), _
+     StrPtr(StrConv("ArrayTemp", vbFromUnicode)))
+     '///
+     h = LLVMBuildSub(g_hBuilder, h, _
+     LLVMConstZExt(m_objVariable.ArrayBound(0, i).GetProperty(action_const_codegen), g_objIntrinsicDataTypes(vbIntPtr_t).Handle), _
+     StrPtr(StrConv("ArrayTemp", vbFromUnicode)))
+     '///
+     If i > 1 Then
+      h = LLVMBuildMul(g_hBuilder, h, _
+      LLVMConstInt(g_objIntrinsicDataTypes(vbIntPtr_t).Handle, m_objVariable.ArrayDimensionSize(i - 1), 0), _
+      StrPtr(StrConv("ArrayTemp", vbFromUnicode)))
+     End If
+    Next i
+    '///
+    i = h
+    h = LLVMBuildGEP(g_hBuilder, m_objVariable.VariableHandle, i, 1, StrPtr(StrConv("ArrayTemp", vbFromUnicode)))
+   Else
+    'TODO:
+    Panic
+   End If
   Else
-   CodegenEx = LLVMBuildLoad(g_hBuilder, m_objVariable.VariableHandle, StrPtr(StrConv("LoadTemp", vbFromUnicode)))
+   h = m_objVariable.VariableHandle
+  End If
+  '///
+  If bIsLValue Then
+   CodegenEx = h
+  Else
+   CodegenEx = LLVMBuildLoad(g_hBuilder, h, StrPtr(StrConv("LoadTemp", vbFromUnicode)))
   End If
  Case 4 'const
   If bIsLValue Then

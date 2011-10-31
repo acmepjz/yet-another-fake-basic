@@ -35,6 +35,8 @@ Public g_bAssemble As Boolean
 Public g_bLink As Boolean 'currently unsupported
 Public g_bEmitLLVM As Boolean
 
+Public g_bWarningAsError As Boolean
+
 Public g_nOptimizeLevel As LLVMCodeGenOpt
 Public g_bOptimizeForSize As Boolean
 
@@ -58,6 +60,7 @@ Public g_hTargetData As Long
 
 Public Sub Panic()
 Debug.Assert False
+Puts "Assetion failed!!!" + vbCrLf
 DebugBreak
 End Sub
 
@@ -133,6 +136,17 @@ If (GetAttr(fn) And vbDirectory) = 0 Then
 End If
 End Sub
 
+Public Function CheckConstant(ByVal hConst As Long, Optional ByVal nLine As Long = -1, Optional ByVal nColumn As Long = -1) As Boolean
+If hConst = 0 Then
+ 'PrintError "Unknown error in evaluating constants", nLine, nColumn
+ Exit Function
+ElseIf LLVMIsUndef(hConst) Then
+ PrintError "Constant evaluate to 'undef'", nLine, nColumn
+ Exit Function
+End If
+CheckConstant = True
+End Function
+
 Public Sub PrintError(ByVal s As String, Optional ByVal nLine As Long, Optional ByVal nColumn As Long)
 If nLine = 0 Then
  nLine = g_tToken.nLine
@@ -152,6 +166,11 @@ g_nErrors = g_nErrors + 1
 End Sub
 
 Public Sub PrintWarning(ByVal s As String, Optional ByVal nLine As Long, Optional ByVal nColumn As Long)
+If g_bWarningAsError Then
+ PrintError s, nLine, nColumn
+ Exit Sub
+End If
+'///
 If nLine = 0 Then
  nLine = g_tToken.nLine
  If nColumn = 0 Then nColumn = g_tToken.nColumn
@@ -197,6 +216,7 @@ PrintHelp "-features <string>", "Target features. Default value is 'i686,mmx,cmo
 PrintHelp "-version", "Display the version of this program"
 PrintHelp "-w32", "Set pointer size to 32-bit (4 bytes) (default)"
 PrintHelp "-w64", "Set pointer size to 64-bit (8 bytes)"
+PrintHelp "-Werror", "Treat all warnings as errors"
 End Sub
 
 Public Sub ShowVersion()
@@ -334,6 +354,8 @@ For i = 1 To Argc - 1
   g_nWordSize = 4
  Case "-w64"
   g_nWordSize = 8
+ Case "-Werror"
+  g_bWarningAsError = True
  Case Else
   Select Case LCase(Right(s, 4))
   Case ".vbp"
@@ -453,12 +475,15 @@ CodegenAll
 i = 0
 j = LLVMVerifyModule(g_hModule, LLVMPrintMessageAction, i)
 If i Then LLVMDisposeMessage i
+If j <> 0 Then
+ PrintError "Compiler internal error", -1, -1
+End If
 '///
-RunOptimization
+If g_nErrors = 0 Then RunOptimization
 If g_bEmitLLVM Then
  GenerateLLVMFile
 Else
- GenerateObjectFile
+ If g_nErrors = 0 Then GenerateObjectFile
 End If
 '///
 LLVMDisposeTargetData g_hTargetData
@@ -830,3 +855,39 @@ For i = 1 To Len(s)
 Next i
 End Function
 
+'anotner helper function
+'nOverflow: &H1& 32-bit overflow, &H2& 64-bit overflow
+Public Function UnsignedLongLongMultiply(ByVal n1 As Currency, ByVal n2 As Currency, Optional ByRef nOverflow As Long) As Currency
+'stupid algorithm
+Dim b1(15) As Byte
+Dim b2(15) As Byte
+Dim b3(15) As Byte
+Dim i As Long, j As Long, k As Long
+'///
+nOverflow = 0
+CopyMemory b1(0), n1, 8&
+CopyMemory b2(0), n2, 8&
+'///
+For i = 0 To 15
+ For j = 0 To i
+  k = k + CLng(b1(j)) * CLng(b2(i - j))
+ Next j
+ If k Then
+  If i > 7 Then
+   nOverflow = 3
+   Exit Function
+  ElseIf i > 3 Then
+   nOverflow = 1
+  End If
+ End If
+ b3(i) = k And &HFF&
+ k = k \ &H100&
+Next i
+If k Then
+ nOverflow = 3
+ Exit Function
+End If
+'///
+CopyMemory n1, b3(0), 8&
+UnsignedLongLongMultiply = n1
+End Function

@@ -29,6 +29,12 @@ Private m_nForStackSize As Long
 Private m_objExitStack() As IASTNode '1-based
 Private m_nExitStackSize As Long
 
+Private m_objDefaultBase As IASTNode 'Option Base. TODO:
+
+Friend Property Get DefaultBase() As IASTNode
+Set DefaultBase = m_objDefaultBase
+End Property
+
 Friend Sub AddExitStack(ByVal obj As IASTNode)
 m_nExitStackSize = m_nExitStackSize + 1
 ReDim Preserve m_objExitStack(1 To m_nExitStackSize)
@@ -70,6 +76,11 @@ Dim nFlags As Long
 Dim obj As IASTNode
 '///
 Set m_objNodes = New Collection
+'///default: Option Base 0
+With New ConstNode
+ .CreateIndirect g_objIntrinsicDataTypes(vbLong), LLVMConstInt(LLVMInt32Type, 0@, 1)
+ Set m_objDefaultBase = .This
+End With
 '///get file type
 Select Case LCase(Right(objFile.FileName, 4))
 Case ".cls"

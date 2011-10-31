@@ -36,6 +36,7 @@ Private m_nType As Long
 Private m_t As typeToken
 
 Private m_objDimension() As IASTNode '0 to 1,1 to m_nDimemsionCount, (0,x) can be Nothing, (1,x) can't be Nothing
+Private m_nArrayDimSize() As Currency '1 to m_nDimemsionCount
 Private m_nDimemsionCount As Long
 
 Private m_objDataType As DataTypeNode 'must not be Nothing (??)
@@ -48,6 +49,16 @@ Private m_hType As Long 'not exactly
 Private m_hVariable As Long
 
 Private m_hConst As Long
+
+Private m_hConst_ArrayElementCount As Long
+
+Friend Property Get ArrayDimensionSize(ByVal nIndex As Long) As Currency
+ArrayDimensionSize = m_nArrayDimSize(nIndex)
+End Property
+
+Friend Property Get DimensionCount() As Long
+DimensionCount = m_nDimemsionCount
+End Property
 
 Friend Property Get InitValue() As IASTNode
 Set InitValue = m_objInitValue
@@ -68,7 +79,7 @@ Case 4 'const
  Case action_const_codegen
   If m_hConst = 0 Then
    m_hConst = m_objInitValue.GetProperty(action_const_codegen)
-   If m_hConst = 0 Then Exit Function
+   If Not CheckConstant(m_hConst) Then Exit Function
    '///verify data type
    Set objSrcType = m_objInitValue.GetType(nSrcFlags)
    If m_objDataType Is Nothing Then
@@ -93,6 +104,7 @@ Case 4 'const
    End Select
    '///codegen
    m_hConst = g_objTypeMgr.CodegenTypeConversion(Nothing, m_hConst, objSrcType, nSrcFlags, objDestType, nDestFlags, True)
+   If Not CheckConstant(m_hConst) Then Exit Function
    '///over
   End If
   IASTNode_GetProperty = m_hConst
@@ -124,17 +136,23 @@ Case 0 'dim
  End If
  '///
  If m_nType And &H400& Then
-  'TODO:array
-  Panic
+  '///array type (test only) TODO:
+  If m_nDimemsionCount > 0 Then
+   i = m_objDataType.GetDataType.Handle
+   'i = LLVMPointerType(i, 0) '@#^$$#%%$&#$????? TODO:
+  Else
+   i = LLVMPointerType(g_hTypeSafeArray, 0)
+  End If
  Else
   i = m_objDataType.GetDataType.Handle
-  If m_nType And &H1000& Then
-   m_hType = LLVMPointerType(i, 0)
-  Else
-   m_hType = i
-  End If
-  CodegenType = m_hType
  End If
+ '///ByRef ?
+ If m_nType And &H1000& Then
+  m_hType = LLVMPointerType(i, 0)
+ Else
+  m_hType = i
+ End If
+ CodegenType = m_hType
 Case Else
  'TODO: things other than 'Dim', etc.
 End Select
@@ -143,6 +161,8 @@ End Function
 'TODO:array, byref, etc.
 'TODO:default value
 Friend Function CodegenVariable(ByVal objContext As clsVerifyContext) As Long
+Dim h(3) As Long
+'///
 Select Case m_nType And &HF&
 Case 0 'dim
  If m_hVariable Then
@@ -151,8 +171,21 @@ Case 0 'dim
  End If
  If Not objContext.CurrentFunction Is Nothing Then
   '///local variable
-  m_hVariable = LLVMBuildAlloca(g_hBuilder, m_hType, ByVal StrPtr(StrConv(m_t.sValue, vbFromUnicode)))
-  m_objDataType.GetDataType.CodegenDefaultConstructor objContext, m_hVariable
+  If m_nType And &H400& Then 'array
+   If m_nDimemsionCount > 0 Then
+    m_hVariable = LLVMBuildArrayAlloca(g_hBuilder, m_hType, m_hConst_ArrayElementCount, ByVal StrPtr(StrConv(m_t.sValue, vbFromUnicode)))
+    h(0) = m_hVariable
+    h(1) = LLVMConstInt(LLVMInt32Type, 0@, 1)
+    h(2) = m_hConst_ArrayElementCount
+    LLVMBuildCall g_hBuilder, RuntimeLibraryGetFunction(internal_memset), h(0), 3, StrPtr(vbNullChar)
+   Else
+    m_hVariable = LLVMBuildAlloca(g_hBuilder, m_hType, ByVal StrPtr(StrConv(m_t.sValue, vbFromUnicode)))
+    LLVMBuildStore g_hBuilder, LLVMConstPointerNull(m_hType), m_hVariable
+   End If
+  Else
+   m_hVariable = LLVMBuildAlloca(g_hBuilder, m_hType, ByVal StrPtr(StrConv(m_t.sValue, vbFromUnicode)))
+   m_objDataType.GetDataType.CodegenDefaultConstructor objContext, m_hVariable
+  End If
  ElseIf objContext.Module.FileType = 0 Then
   '///global variable
   m_hVariable = LLVMAddGlobal(g_hModule, m_hType, ByVal StrPtr(StrConv(m_t.sValue, vbFromUnicode)))
@@ -247,6 +280,10 @@ Set m_objDimension(0, m_nDimemsionCount) = obj0
 Set m_objDimension(1, m_nDimemsionCount) = obj1
 End Sub
 
+Friend Property Get ArrayBound(ByVal nLBoundOrUBound As Long, ByVal nIndex As Long) As IASTNode
+Set ArrayBound = m_objDimension(nLBoundOrUBound, nIndex)
+End Property
+
 Friend Property Get DataType() As DataTypeNode
 Set DataType = m_objDataType
 End Property
@@ -287,8 +324,12 @@ End Sub
 
 Private Function IASTNode_Verify(ByVal objContext As clsVerifyContext) As Boolean
 Dim i As Long
-Dim obj As IASTNode
+Dim obj As IASTNode, obj1 As IASTNode
+Dim objType As clsTypeNode, nFlags As Long
 Dim nType As VbVarType
+Dim hValue As Long
+Dim n1 As Currency, n2 As Currency
+Dim nArrayElementCount As Currency
 '///
 Select Case m_nType And &HF&
 Case 0 'dim
@@ -307,12 +348,90 @@ Case 0 'dim
    Next i
   End If
  Case verify_dim
-  'TODO:array dimension
+  '///array dimension
   If m_nType And &H400& Then
-   PrintError "Currently array is unsupported", -1, -1
-   Exit Function
- '  For i = 1 To m_nDimemsionCount
- '  Next i
+   If m_nDimemsionCount = 0 Then
+    PrintError "Currently dynamic array is unsupported", -1, -1
+    Exit Function
+   ElseIf m_nDimemsionCount >= 65536 Then
+    PrintError "Array dimension must be smaller than 65536", -1, -1
+    Exit Function
+   End If
+   '///check array
+   If m_nDimemsionCount > 0 Then
+    ReDim m_nArrayDimSize(1 To m_nDimemsionCount)
+    nArrayElementCount = 0.0001@
+    For i = 1 To m_nDimemsionCount
+     '///check LBound
+     Set obj = m_objDimension(0, i)
+     If obj Is Nothing Then
+      Set obj = objContext.Module.DefaultBase
+     Else
+      hValue = obj.GetProperty(action_const_codegen)
+      If Not CheckConstant(hValue) Then Exit Function
+      '///check type
+      nFlags = 0
+      Set objType = obj.GetType(nFlags)
+      If g_objTypeMgr.CheckTypeConversion(objType, nFlags, g_objIntrinsicDataTypes(vbLong), 0) = 0 Then
+       PrintError "Array lower bound " + CStr(i) + " of variable '" + m_t.sValue + "' type mismatch: trying convert '" + _
+       objType.Name + "' to 'Long'", m_t.nLine, m_t.nColumn
+       Exit Function
+      End If
+      hValue = g_objTypeMgr.CodegenTypeConversion(objContext, hValue, objType, nFlags, g_objIntrinsicDataTypes(vbLong), 0, True)
+      If Not CheckConstant(hValue) Then Exit Function
+      '///
+      With New ConstNode
+       .CreateIndirect g_objIntrinsicDataTypes(vbLong), hValue
+       Set obj = .This
+      End With
+     End If
+     '///check UBound
+     Set obj1 = m_objDimension(1, i)
+     If obj1 Is Nothing Then
+      PrintError "Must specify array upper bound " + CStr(i) + " of variable '" + m_t.sValue + "'", m_t.nLine, m_t.nColumn
+      Exit Function
+     Else
+      hValue = obj1.GetProperty(action_const_codegen)
+      If Not CheckConstant(hValue) Then Exit Function
+      '///check type
+      nFlags = 0
+      Set objType = obj1.GetType(nFlags)
+      If g_objTypeMgr.CheckTypeConversion(objType, nFlags, g_objIntrinsicDataTypes(vbLong), 0) = 0 Then
+       PrintError "Array upper bound " + CStr(i) + " of variable '" + m_t.sValue + "' type mismatch: trying convert '" + _
+       objType.Name + "' to 'Long'", m_t.nLine, m_t.nColumn
+       Exit Function
+      End If
+      hValue = g_objTypeMgr.CodegenTypeConversion(objContext, hValue, objType, nFlags, g_objIntrinsicDataTypes(vbLong), 0, True)
+      If Not CheckConstant(hValue) Then Exit Function
+      '///
+      With New ConstNode
+       .CreateIndirect g_objIntrinsicDataTypes(vbLong), hValue
+       Set obj1 = .This
+      End With
+     End If
+     '///check LBound<=UBound
+     n1 = LLVMConstIntGetSExtValue(obj.GetProperty(action_const_codegen))
+     n2 = LLVMConstIntGetSExtValue(obj1.GetProperty(action_const_codegen))
+     If n1 > n2 Then
+      PrintError "Lower bound '" + CStr(n1 * 10000@) + "' is greater than upper bound '" + CStr(n2 * 10000@) + _
+      "' for array subscript " + CStr(i) + " of variable '" + m_t.sValue + "'", m_t.nLine, m_t.nColumn
+      Exit Function
+     End If
+     '///calc array size
+     m_nArrayDimSize(i) = n2 - n1 + 0.0001@
+     nArrayElementCount = UnsignedLongLongMultiply(nArrayElementCount, m_nArrayDimSize(i), nFlags)
+     If ((nFlags And 1&) <> 0 And g_nWordSize = 4) Or ((nFlags And 2&) <> 0 And g_nWordSize = 8) Then
+      PrintError "Array '" + m_t.sValue + "' too big", m_t.nLine, m_t.nColumn
+      Exit Function
+     End If
+     '///over
+     Set m_objDimension(0, i) = obj
+     Set m_objDimension(1, i) = obj1
+    Next i
+    '///save array size
+    m_hConst_ArrayElementCount = LLVMConstInt(g_objIntrinsicDataTypes(vbIntPtr_t).Handle, nArrayElementCount, 0)
+   End If
+   '///
   End If
   '///verify data type
   If m_objDataType Is Nothing Then

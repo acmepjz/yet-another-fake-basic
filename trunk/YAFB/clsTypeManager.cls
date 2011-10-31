@@ -287,6 +287,7 @@ Case token_plus, token_minus, token_asterisk
  ElseIf ((nFlags1 And &HF&) = 1 Or (nFlags1 And &HF&) = 2) And ((nFlags2 And &HF&) = 1 Or (nFlags2 And &HF&) = 2) Then
   nMaxSize = objType1.Size
   If nMaxSize < objType2.Size Then nMaxSize = objType2.Size
+  'XXX TODO:signed constant --> unsigned constant
   If (nFlags1 And &HF&) = 1 Or (nFlags2 And &HF&) = 1 Or nOperator = token_minus Then
    Select Case nMaxSize
    Case 1
@@ -331,7 +332,9 @@ Case token_backslash, keyword_mod
  ElseIf ((nFlags1 And &HF&) = 1 Or (nFlags1 And &HF&) = 2) And ((nFlags2 And &HF&) = 1 Or (nFlags2 And &HF&) = 2) Then
   nMaxSize = objType1.Size
   If nMaxSize < objType2.Size Then nMaxSize = objType2.Size
-  If (nFlags1 And &HF&) = 1 Or (nFlags2 And &HF&) = 1 Then
+  'XXX TODO:signed constant --> unsigned constant
+  'If (nFlags1 And &HF&) = 1 Or (nFlags2 And &HF&) = 1 Then
+  If (nFlags1 And &HF&) = 1 Then 'dirty workaround
    Select Case nMaxSize
    Case 1
     Set CheckBinaryOperator = g_objIntrinsicDataTypes(vbSignedByte)
@@ -595,17 +598,11 @@ Case Else
    Else
     CodegenBinaryOperator = LLVMBuildFMul(g_hBuilder, hValue1, hValue2, StrPtr(StrConv("MulTemp", vbFromUnicode)))
    End If
-  Case 1 'signed
+  Case 1, 2 'signed and unsigned (??)
    If bIsConstant Then
-    CodegenBinaryOperator = LLVMConstNSWMul(hValue1, hValue2)
+    CodegenBinaryOperator = LLVMConstMul(hValue1, hValue2)
    Else
-    CodegenBinaryOperator = LLVMBuildNSWMul(g_hBuilder, hValue1, hValue2, StrPtr(StrConv("MulTemp", vbFromUnicode)))
-   End If
-  Case 2 'unsigned
-   If bIsConstant Then
-    CodegenBinaryOperator = LLVMConstNUWMul(hValue1, hValue2)
-   Else
-    CodegenBinaryOperator = LLVMBuildNUWMul(g_hBuilder, hValue1, hValue2, StrPtr(StrConv("MulTemp", vbFromUnicode)))
+    CodegenBinaryOperator = LLVMBuildMul(g_hBuilder, hValue1, hValue2, StrPtr(StrConv("MulTemp", vbFromUnicode)))
    End If
   End Select
  Case token_backslash
@@ -614,13 +611,13 @@ Case Else
    If bIsConstant Then
     CodegenBinaryOperator = LLVMConstSDiv(hValue1, hValue2)
    Else
-    CodegenBinaryOperator = LLVMBuildSDiv(g_hBuilder, hValue1, hValue2, StrPtr(StrConv("SubTemp", vbFromUnicode)))
+    CodegenBinaryOperator = LLVMBuildSDiv(g_hBuilder, hValue1, hValue2, StrPtr(StrConv("IDivTemp", vbFromUnicode)))
    End If
   Case 2 'unsigned
    If bIsConstant Then
     CodegenBinaryOperator = LLVMConstUDiv(hValue1, hValue2)
    Else
-    CodegenBinaryOperator = LLVMBuildUDiv(g_hBuilder, hValue1, hValue2, StrPtr(StrConv("SubTemp", vbFromUnicode)))
+    CodegenBinaryOperator = LLVMBuildUDiv(g_hBuilder, hValue1, hValue2, StrPtr(StrConv("IDivTemp", vbFromUnicode)))
    End If
   End Select
  Case keyword_mod
@@ -629,20 +626,20 @@ Case Else
    If bIsConstant Then
     CodegenBinaryOperator = LLVMConstSRem(hValue1, hValue2)
    Else
-    CodegenBinaryOperator = LLVMBuildSRem(g_hBuilder, hValue1, hValue2, StrPtr(StrConv("SubTemp", vbFromUnicode)))
+    CodegenBinaryOperator = LLVMBuildSRem(g_hBuilder, hValue1, hValue2, StrPtr(StrConv("ModTemp", vbFromUnicode)))
    End If
   Case 2 'unsigned
    If bIsConstant Then
     CodegenBinaryOperator = LLVMConstURem(hValue1, hValue2)
    Else
-    CodegenBinaryOperator = LLVMBuildURem(g_hBuilder, hValue1, hValue2, StrPtr(StrConv("SubTemp", vbFromUnicode)))
+    CodegenBinaryOperator = LLVMBuildURem(g_hBuilder, hValue1, hValue2, StrPtr(StrConv("ModTemp", vbFromUnicode)))
    End If
   End Select
  Case token_slash
   If bIsConstant Then
    CodegenBinaryOperator = LLVMConstFDiv(hValue1, hValue2)
   Else
-   CodegenBinaryOperator = LLVMBuildFDiv(g_hBuilder, hValue1, hValue2, StrPtr(StrConv("SubTemp", vbFromUnicode)))
+   CodegenBinaryOperator = LLVMBuildFDiv(g_hBuilder, hValue1, hValue2, StrPtr(StrConv("DivTemp", vbFromUnicode)))
   End If
  Case token_power
   '///dirty workaround
@@ -665,7 +662,7 @@ Case Else
   Else
    n(0) = hValue1
    n(1) = hValue2
-   CodegenBinaryOperator = LLVMBuildCall(g_hBuilder, g_hFunctionPow, n(0), 2, StrPtr(StrConv("PowTemp", vbFromUnicode)))
+   CodegenBinaryOperator = LLVMBuildCall(g_hBuilder, RuntimeLibraryGetFunction(internal_pow), n(0), 2, StrPtr(StrConv("PowTemp", vbFromUnicode)))
   End If
  End Select
 End Select

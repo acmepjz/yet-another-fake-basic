@@ -32,6 +32,7 @@ Case action_const_codegen
  If m_hConst = 0 Then
   Set obj = m_objSubNode(1)
   m_hConst = obj.GetProperty(action_const_codegen)
+  If Not CheckConstant(m_hConst) Then Exit Function
  End If
  IASTNode_GetProperty = m_hConst
 End Select
