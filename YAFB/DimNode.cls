@@ -13,6 +13,8 @@ Attribute VB_PredeclaredId = False
 Attribute VB_Exposed = False
 Option Explicit
 
+Private Declare Sub CopyMemory Lib "kernel32.dll" Alias "RtlMoveMemory" (ByRef Destination As Any, ByRef Source As Any, ByVal Length As Long)
+
 Implements IASTNode
 
 Private m_nType As Long
@@ -50,6 +52,7 @@ Private m_hVariable As Long
 
 Private m_hConst As Long
 
+Private m_nArrayElementCount As Currency
 Private m_hConst_ArrayElementCount As Long
 
 Friend Property Get ArrayDimensionSize(ByVal nIndex As Long) As Currency
@@ -127,7 +130,7 @@ End Select
 End Sub
 
 Friend Function CodegenType() As Long
-Dim i As Long
+Dim i As Long, j As Long
 Select Case m_nType And &HF&
 Case 0 'dim
  If m_hType Then
@@ -139,7 +142,9 @@ Case 0 'dim
   '///array type (test only) TODO:
   If m_nDimemsionCount > 0 Then
    i = m_objDataType.GetDataType.Handle
-   'i = LLVMPointerType(i, 0) '@#^$$#%%$&#$????? TODO:
+   '@#^$$#%%$&#$????? TODO:
+   CopyMemory j, m_nArrayElementCount, 4&
+   i = LLVMArrayType(i, j)
   Else
    i = LLVMPointerType(g_hTypeSafeArray, 0)
   End If
@@ -173,10 +178,10 @@ Case 0 'dim
   '///local variable
   If m_nType And &H400& Then 'array
    If m_nDimemsionCount > 0 Then
-    m_hVariable = LLVMBuildArrayAlloca(g_hBuilder, m_hType, m_hConst_ArrayElementCount, ByVal StrPtr(StrConv(m_t.sValue, vbFromUnicode)))
-    h(0) = m_hVariable
+    m_hVariable = LLVMBuildAlloca(g_hBuilder, m_hType, ByVal StrPtr(StrConv(m_t.sValue, vbFromUnicode)))
+    h(0) = LLVMBuildPointerCast(g_hBuilder, m_hVariable, LLVMPointerType(LLVMInt8Type, 0), ByVal StrPtr(StrConv("ByRefTemp", vbFromUnicode)))
     h(1) = LLVMConstInt(LLVMInt32Type, 0@, 1)
-    h(2) = m_hConst_ArrayElementCount
+    h(2) = LLVMBuildIntCast(g_hBuilder, LLVMSizeOf(m_hType), g_objIntrinsicDataTypes(vbIntPtr_t).Handle, ByVal StrPtr(StrConv("SizeTemp", vbFromUnicode)))
     LLVMBuildCall g_hBuilder, RuntimeLibraryGetFunction(internal_memset), h(0), 3, StrPtr(vbNullChar)
    Else
     m_hVariable = LLVMBuildAlloca(g_hBuilder, m_hType, ByVal StrPtr(StrConv(m_t.sValue, vbFromUnicode)))
@@ -419,6 +424,11 @@ Case 0 'dim
      End If
      '///calc array size
      m_nArrayDimSize(i) = n2 - n1 + 0.0001@
+     If m_nArrayDimSize(i) >= 429296.7296@ Then
+      PrintError "Array size of one dimension must be smaller than 4294967296", m_t.nLine, m_t.nColumn
+      Exit Function
+     End If
+     '///
      nArrayElementCount = UnsignedLongLongMultiply(nArrayElementCount, m_nArrayDimSize(i), nFlags)
      If ((nFlags And 1&) <> 0 And g_nWordSize = 4) Or ((nFlags And 2&) <> 0 And g_nWordSize = 8) Then
       PrintError "Array '" + m_t.sValue + "' too big", m_t.nLine, m_t.nColumn
@@ -428,7 +438,13 @@ Case 0 'dim
      Set m_objDimension(0, i) = obj
      Set m_objDimension(1, i) = obj1
     Next i
+    '///XXX TODO:
+    If nArrayElementCount >= 429296.7296@ Then
+     PrintError "Currently element count of array must be smaller than 4294967296", m_t.nLine, m_t.nColumn
+     Exit Function
+    End If
     '///save array size
+    m_nArrayElementCount = nArrayElementCount
     m_hConst_ArrayElementCount = LLVMConstInt(g_objIntrinsicDataTypes(vbIntPtr_t).Handle, nArrayElementCount, 0)
    End If
    '///
