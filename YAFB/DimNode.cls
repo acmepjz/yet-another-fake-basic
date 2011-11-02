@@ -117,7 +117,9 @@ Case 4 'const
 End Select
 End Function
 
-Friend Sub CodegenDefaultDestructor(ByVal objContext As clsVerifyContext)
+Friend Sub CodegenDefaultDestructor()
+Dim h(3) As Long
+'///
 Select Case m_nType And &HF&
 Case 0 'dim
  If (m_nType And &HF0&) = &HF0& Then
@@ -125,7 +127,11 @@ Case 0 'dim
  Else
   If m_nType And &H400& Then 'array
    If m_nDimemsionCount > 0 Then 'fixed-size array
-    'TODO: generate destructor of elements in array
+    '///generate destructor of elements in array
+    h(0) = LLVMBuildPointerCast(g_hBuilder, m_hVariable, LLVMPointerType(m_objDataType.GetDataType.Handle, 0), StrPtr(StrConv("ByRefTemp", vbFromUnicode)))
+    h(1) = m_hConst_ArrayElementCount
+    LLVMBuildCall g_hBuilder, m_objDataType.GetDataType.GetDefaultVectorDestructorFunction, h(0), 2, StrPtr(vbNullChar)
+    '///
     If m_bArrayInHeap Then
      LLVMBuildFree g_hBuilder, m_hVariable
     End If
@@ -134,7 +140,7 @@ Case 0 'dim
    End If
   Else
    'TODO:etc.
-   m_objDataType.GetDataType.CodegenDefaultDestructor objContext, m_hVariable
+   m_objDataType.GetDataType.CodegenDefaultDestructor m_hVariable
   End If
  End If
 Case Else
@@ -221,7 +227,7 @@ Case 0 'dim
    End If
   Else
    m_hVariable = LLVMBuildAlloca(g_hBuilder, m_hType, ByVal StrPtr(StrConv(m_t.sValue, vbFromUnicode)))
-   m_objDataType.GetDataType.CodegenDefaultConstructor objContext, m_hVariable
+   m_objDataType.GetDataType.CodegenDefaultConstructor m_hVariable
   End If
  ElseIf objContext.Module.FileType = 0 Then
   '///global variable
@@ -236,7 +242,7 @@ Case 0 'dim
    End If
   Else
    m_hVariable = LLVMAddGlobal(g_hModule, m_hType, ByVal StrPtr(StrConv(m_t.sValue, vbFromUnicode)))
-   LLVMSetInitializer m_hVariable, m_objDataType.GetDataType.CodegenDefaultValue(objContext)
+   LLVMSetInitializer m_hVariable, m_objDataType.GetDataType.CodegenDefaultValue
   End If
  Else
   'TODO: class member variable

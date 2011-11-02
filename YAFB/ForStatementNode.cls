@@ -116,7 +116,7 @@ If m_objStepValue Is Nothing Then
  '///
  'hStepVariable = objContext.CurrentFunction.GetNewVariable(objContext, objSrcType, "ForStepVariable")
  hStepVariable = objContext.CurrentFunction.GetTempVariable(objContext, objSrcType, nTag)
- LLVMBuildStore g_hBuilder, objSrcType.CodegenOneValue(objContext), hStepVariable
+ LLVMBuildStore g_hBuilder, objSrcType.CodegenOneValue, hStepVariable
 Else
  nSrcFlags = 0
  Set objSrcType = m_objStepValue.GetType(nSrcFlags)

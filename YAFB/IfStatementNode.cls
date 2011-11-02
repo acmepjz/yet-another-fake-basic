@@ -93,7 +93,7 @@ For i = 1 To m_nCount
  hValue = m_objCondition(i).Codegen(objContext, nParam1, nParam2, nParam3, nParam4)
  Set objType = m_objCondition(i).GetType(nFlags)
  '///
- hValue = objType.CodegenConvertToI1(objContext, hValue, lp)
+ hValue = objType.CodegenConvertToI1(hValue, lp)
  '///
  hTmpBlock = LLVMAppendBasicBlock(hFunction, lp2)
  LLVMBuildCondBr g_hBuilder, hValue, hBlock(i), hTmpBlock
