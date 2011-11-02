@@ -57,13 +57,13 @@ For Each v In m_objVariable
 Next v
 End Sub
 
-Friend Sub CodegenDefaultDestructor(ByVal objContext As clsVerifyContext)
+Friend Sub CodegenDefaultDestructor()
 Dim v As Variant
 Dim objVariable As DimNode
 '///
 For Each v In m_objVariable
  Set objVariable = v
- objVariable.CodegenDefaultDestructor objContext
+ objVariable.CodegenDefaultDestructor
 Next v
 End Sub
 

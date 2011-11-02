@@ -150,7 +150,7 @@ Case verify_all
    If m_objDefault(i) Is Nothing Then
     '///get default value of data type
     Set objDestType = m_obj(i).DataType.GetDataType
-    hValue = objDestType.CodegenDefaultValue(objContext)
+    hValue = objDestType.CodegenDefaultValue
     '///TODO:
     If hValue Then
      With New ConstNode

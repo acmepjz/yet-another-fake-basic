@@ -49,7 +49,7 @@ lp = StrPtr(s)
 '///
 Select Case nDestType
 Case vbBoolean
- hValue = objSrcType.CodegenConvertToI1(objContext, hValue, lp, bIsConstant)
+ hValue = objSrcType.CodegenConvertToI1(hValue, lp, bIsConstant)
  If bIsConstant Then
   CodegenTypeConversion = LLVMConstSExt(hValue, objDestType.Handle)
  Else

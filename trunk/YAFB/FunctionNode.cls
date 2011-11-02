@@ -126,7 +126,7 @@ End Sub
 
 Friend Sub RemoveTempVariableByIndex(ByVal objContext As clsVerifyContext, ByVal i As Long)
 If m_tTempVariable(i).nTag Then
- m_tTempVariable(i).objType.CodegenDefaultDestructor objContext, m_tTempVariable(i).hVariable
+ m_tTempVariable(i).objType.CodegenDefaultDestructor m_tTempVariable(i).hVariable
  m_tTempVariable(i).nTag = 0
 End If
 End Sub
@@ -196,7 +196,7 @@ If (m_nType And &H100&) = 0 Then
  LLVMBuildBr g_hBuilder, m_hFunctionEndBlock
  '///
  LLVMPositionBuilderAtEnd g_hBuilder, m_hFunctionEndBlock
- m_objTable.CodegenDefaultDestructor objNewContext
+ m_objTable.CodegenDefaultDestructor
  'TODO: etc.
  '///
  Select Case m_nType And &HF&

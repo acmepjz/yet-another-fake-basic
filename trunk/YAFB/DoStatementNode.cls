@@ -57,7 +57,7 @@ If hBlockDoCondition Then
  nFlags = 0
  Set objType = m_objDoCondition.GetType(nFlags)
  '///
- hValue = objType.CodegenConvertToI1(objContext, hValue, lp)
+ hValue = objType.CodegenConvertToI1(hValue, lp)
  '///
  If m_nFlags And 1& Then 'Do Until
   LLVMBuildCondBr g_hBuilder, hValue, m_hEndBlock, hBlockDo
@@ -82,7 +82,7 @@ If Not m_objLoopCondition Is Nothing Then
  nFlags = 0
  Set objType = m_objLoopCondition.GetType(nFlags)
  '///
- hValue = objType.CodegenConvertToI1(objContext, hValue, lp)
+ hValue = objType.CodegenConvertToI1(hValue, lp)
  '///
  If m_nFlags And 2& Then 'Loop Until
   LLVMBuildCondBr g_hBuilder, hValue, m_hEndBlock, hBlockDo
