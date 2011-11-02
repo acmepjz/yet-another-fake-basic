@@ -374,7 +374,7 @@ If Not m_objVariable Is Nothing Then
     h = LLVMBuildInBoundsGEP(g_hBuilder, m_objVariable.VariableHandle, d(0), 2, StrPtr(StrConv("ArrayTemp", vbFromUnicode)))
    Else
     'TODO:
-    Panic
+    PrintPanic "Currently dynamic array is unsupported", -1, -1
    End If
   Else
    h = m_objVariable.VariableHandle
@@ -387,7 +387,7 @@ If Not m_objVariable Is Nothing Then
   End If
  Case 4 'const
   If bIsLValue Then
-   Panic
+   PrintPanic "Unexpected CodegenEx LValue request on constant", -1, -1
   Else
    CodegenEx = m_objVariable.ConstHandle
   End If

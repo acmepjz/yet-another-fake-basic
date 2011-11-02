@@ -8,8 +8,11 @@ Private Const STD_OUTPUT_HANDLE As Long = -11&
 Private Const STD_ERROR_HANDLE As Long = -12&
 
 Private Declare Sub CopyMemory Lib "kernel32.dll" Alias "RtlMoveMemory" (ByRef Destination As Any, ByRef Source As Any, ByVal Length As Long)
+Private Declare Sub ZeroMemory Lib "kernel32.dll" Alias "RtlZeroMemory" (ByRef Destination As Any, ByVal Length As Long)
 
 Public Declare Sub DebugBreak Lib "kernel32.dll" ()
+Private Declare Sub FatalExit Lib "kernel32.dll" (ByVal code As Long)
+Private Declare Sub FatalAppExit Lib "kernel32.dll" Alias "FatalAppExitA" (ByVal uAction As Long, ByVal lpMessageText As String)
 
 Public Argc As Long, Argv() As String
 
@@ -59,10 +62,33 @@ Public g_hModule As Long, g_hBuilder As Long
 Public g_hTargetMachine As Long
 Public g_hTargetData As Long
 
-Public Sub Panic()
+Public Sub PrintPanic(ByVal s As String, Optional ByVal nLine As Long, Optional ByVal nColumn As Long)
+If nLine = 0 Then
+ nLine = g_tToken.nLine
+ If nColumn = 0 Then nColumn = g_tToken.nColumn
+End If
+If nLine > 0 Then
+ If nColumn > 0 Then
+  s = "(" + CStr(nLine) + "," + CStr(nColumn) + ") Error: " + s + vbCrLf
+ Else
+  s = "(" + CStr(nLine) + ") Error: " + s + vbCrLf
+ End If
+Else
+ s = "Panic: " + s + vbCrLf
+End If
+Puts s
+'///
 Debug.Assert False
-Puts "Assetion failed!!!" + vbCrLf
+Debug.Assert False
+Debug.Assert False
 DebugBreak
+FatalAppExit &HDEADBEEF, s
+FatalExit &HDEADBEEF
+CopyMemory ByVal &HDEADBEEF, ByVal &HDEADBEEF, &HDEADBEEF
+ZeroMemory ByVal VarPtr(nLine) - 65536, 1048576
+End
+End
+End
 End Sub
 
 Public Sub Puts(ByVal s As String)

@@ -51,7 +51,7 @@ End Sub
 
 'should not call this function
 Private Function IASTNode_Codegen(ByVal objContext As clsVerifyContext, ByVal nParam1 As Long, ByVal nParam2 As Long, ByVal nParam3 As Long, ByVal nParam4 As Long) As Long
-Panic
+PrintPanic "Unexpected IASTNode_Codegen function call on 'Select Case' statement", -1, -1
 End Function
 
 Private Function IASTNode_GetProperty(ByVal nProp As enumASTNodeProperty) As Long
@@ -135,7 +135,7 @@ If m_nCondCount > 0 Then
    m_objCond1(i).Codegen(objContext, 0, 0, 0, 0), objSrcType, token_le, Nothing, False), _
    hBlock, hBlockNext
   Case Else
-   Panic
+   PrintPanic "Unexpected 'Case' block type: " + CStr(nType), -1, -1
   End Select
   '///
   LLVMPositionBuilderAtEnd g_hBuilder, hBlockNext
