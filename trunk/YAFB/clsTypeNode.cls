@@ -146,9 +146,22 @@ Friend Property Get Size() As Long
 Size = m_nSize
 End Property
 
-'TODO: other (e.g. struct etc.)
+'TODO: other (e.g. object etc.)
 Friend Sub CodegenDefaultConstructor(ByVal objContext As clsVerifyContext, ByVal hVariable As Long)
-LLVMBuildStore g_hBuilder, CodegenDefaultValue(objContext), hVariable
+Dim h(7) As Long
+Dim m As Currency
+'///
+m = LLVMABISizeOfType(g_hTargetData, m_hType)
+If m <= 0.0008@ Then 'LLVM generates extremely stupid code :(
+ LLVMBuildStore g_hBuilder, CodegenDefaultValue(objContext), hVariable
+Else 'so we should call 'memset' instead... (???)
+ h(0) = LLVMBuildPointerCast(g_hBuilder, hVariable, LLVMPointerType(LLVMInt8Type, 0), ByVal StrPtr(StrConv("ByRefTemp", vbFromUnicode)))
+ h(1) = LLVMConstNull(LLVMInt8Type)
+ h(2) = LLVMBuildIntCast(g_hBuilder, LLVMSizeOf(m_hType), g_objIntrinsicDataTypes(vbIntPtr_t).Handle, ByVal StrPtr(StrConv("SizeTemp", vbFromUnicode)))
+ h(3) = LLVMConstNull(LLVMInt32Type) 'align=unknown
+ h(4) = LLVMConstNull(LLVMInt1Type) 'isVolatile=False
+ LLVMBuildCall g_hBuilder, RuntimeLibraryGetFunction(internal_llvm_memset), h(0), 5, StrPtr(vbNullChar)
+End If
 End Sub
 
 Friend Sub CodegenDefaultDestructor(ByVal objContext As clsVerifyContext, ByVal hVariable As Long)
@@ -171,32 +184,16 @@ Friend Function CodegenDefaultValue(ByVal objContext As clsVerifyContext) As Lon
 Dim i(7) As Long
 '///
 If m_hDefaultValue = 0 Then
- Select Case m_nFlags And &HF&
- Case 1, 2 'integer
-  m_hDefaultValue = LLVMConstInt(m_hType, 0@, 1)
- Case 3 'float point
-  m_hDefaultValue = LLVMConstReal(m_hType, 0#)
- Case Else
-  Select Case m_nType
-  Case vbCurrency
-   m_hDefaultValue = LLVMConstInt(m_hType, 0@, 1)
-  Case vbVariant
-   i(0) = LLVMConstInt(LLVMInt16Type, 0@, 1)
-   i(1) = i(0)
-   i(2) = i(0)
-   i(3) = i(0)
-   i(4) = LLVMConstInt(LLVMInt64Type, 0@, 1)
-   m_hDefaultValue = LLVMConstStruct(i(0), 5, 0)
-  Case vbDecimal
-   i(0) = LLVMConstInt(LLVMInt16Type, 0.0014@, 1)
-   i(1) = LLVMConstInt(LLVMInt8Type, 0@, 1)
-   i(2) = i(1)
-   i(3) = LLVMConstInt(LLVMInt32Type, 0@, 1)
-   i(4) = LLVMConstInt(LLVMInt64Type, 0@, 1)
-   m_hDefaultValue = LLVMConstStruct(i(0), 5, 0)
-  Case Else
-   'TODO: other
-  End Select
+ Select Case m_nType
+ Case vbDecimal
+  i(0) = LLVMConstInt(LLVMInt16Type, 0.0014@, 1)
+  i(1) = LLVMConstInt(LLVMInt8Type, 0@, 1)
+  i(2) = i(1)
+  i(3) = LLVMConstInt(LLVMInt32Type, 0@, 1)
+  i(4) = LLVMConstInt(LLVMInt64Type, 0@, 1)
+  m_hDefaultValue = LLVMConstStruct(i(0), 5, 0)
+ Case Else 'TODO: other
+  m_hDefaultValue = LLVMConstNull(m_hType)
  End Select
 End If
 CodegenDefaultValue = m_hDefaultValue

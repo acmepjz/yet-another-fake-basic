@@ -147,8 +147,17 @@ If m_nType And &H100& Then
  End If
 End If
 m_hFunction = LLVMAddFunction(g_hModule, StrPtr(StrConv(s, vbFromUnicode)), m_hFunctionType)
-LLVMSetLinkage m_hFunction, LLVMExternalLinkage '??
-LLVMSetFunctionCallConv m_hFunction, g_nDefaultCC '?? TODO:cdecl support
+'///set linkage
+'TODO: LLVMExternalLinkage only if function is 'Main' ???
+If (m_nType And &H1F0&) = &H10& Then 'private, non-API. TODO: check if it's member function
+ LLVMSetLinkage m_hFunction, LLVMPrivateLinkage
+Else
+ LLVMSetLinkage m_hFunction, LLVMExternalLinkage
+End If
+'///set attributes
+If g_bOptimizeForSize Then LLVMAddFunctionAttr m_hFunction, LLVMOptimizeForSizeAttribute
+'///
+LLVMSetFunctionCallConv m_hFunction, g_nDefaultCC '?? TODO:custom calling convention support
 End Sub
 
 Friend Property Get ArgumentDeclareList() As ArgDeclareListNode
@@ -186,11 +195,7 @@ If (m_nType And &H100&) = 0 Then
  '///
  LLVMBuildBr g_hBuilder, m_hFunctionEndBlock
  '///
- LLVMPositionBuilderAtEnd g_hBuilder, m_hFunctionVariableBlock
- LLVMBuildBr g_hBuilder, hBlock
- '///
  LLVMPositionBuilderAtEnd g_hBuilder, m_hFunctionEndBlock
- '///
  m_objTable.CodegenDefaultDestructor objNewContext
  'TODO: etc.
  '///
@@ -200,6 +205,9 @@ If (m_nType And &H100&) = 0 Then
  Case Else
   LLVMBuildRetVoid g_hBuilder
  End Select
+ '///
+ LLVMPositionBuilderAtEnd g_hBuilder, m_hFunctionVariableBlock
+ LLVMBuildBr g_hBuilder, hBlock
  '///
 End If
 End Function

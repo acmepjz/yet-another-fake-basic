@@ -55,6 +55,8 @@ Private m_hConst As Long
 Private m_nArrayElementCount As Currency
 Private m_hConst_ArrayElementCount As Long
 
+Private m_bArrayInHeap As Boolean
+
 Friend Property Get ArrayDimensionSize(ByVal nIndex As Long) As Currency
 ArrayDimensionSize = m_nArrayDimSize(nIndex)
 End Property
@@ -121,8 +123,19 @@ Case 0 'dim
  If (m_nType And &HF0&) = &HF0& Then
   'function argument. TODO: ByVal String, reference count, etc.
  Else
-  'TODO:array, etc.
-  m_objDataType.GetDataType.CodegenDefaultDestructor objContext, m_hVariable
+  If m_nType And &H400& Then 'array
+   If m_nDimemsionCount > 0 Then 'fixed-size array
+    'TODO: generate destructor of elements in array
+    If m_bArrayInHeap Then
+     LLVMBuildFree g_hBuilder, m_hVariable
+    End If
+   Else 'dynamic array
+    'TODO:
+   End If
+  Else
+   'TODO:etc.
+   m_objDataType.GetDataType.CodegenDefaultDestructor objContext, m_hVariable
+  End If
  End If
 Case Else
  'TODO: things other than 'Dim', etc.
@@ -166,7 +179,8 @@ End Function
 'TODO:array, byref, etc.
 'TODO:default value
 Friend Function CodegenVariable(ByVal objContext As clsVerifyContext) As Long
-Dim h(3) As Long
+Dim h(7) As Long
+Dim m As Currency
 '///
 Select Case m_nType And &HF&
 Case 0 'dim
@@ -177,13 +191,31 @@ Case 0 'dim
  If Not objContext.CurrentFunction Is Nothing Then
   '///local variable
   If m_nType And &H400& Then 'array
-   If m_nDimemsionCount > 0 Then
-    m_hVariable = LLVMBuildAlloca(g_hBuilder, m_hType, ByVal StrPtr(StrConv(m_t.sValue, vbFromUnicode)))
-    h(0) = LLVMBuildPointerCast(g_hBuilder, m_hVariable, LLVMPointerType(LLVMInt8Type, 0), ByVal StrPtr(StrConv("ByRefTemp", vbFromUnicode)))
-    h(1) = LLVMConstInt(LLVMInt32Type, 0@, 1)
-    h(2) = LLVMBuildIntCast(g_hBuilder, LLVMSizeOf(m_hType), g_objIntrinsicDataTypes(vbIntPtr_t).Handle, ByVal StrPtr(StrConv("SizeTemp", vbFromUnicode)))
-    LLVMBuildCall g_hBuilder, RuntimeLibraryGetFunction(internal_memset), h(0), 3, StrPtr(vbNullChar)
-   Else
+   If m_nDimemsionCount > 0 Then 'fixed-size array
+    '///check if array is too big to be in stack
+    m = LLVMABISizeOfType(g_hTargetData, m_hType)
+    If m > 6.5535@ Then
+     PrintWarning "Size of local array '" + m_t.sValue + "' is bigger than 64KB, allocated in heap instead", m_t.nLine, m_t.nColumn
+     m_bArrayInHeap = True
+    End If
+    '///
+    If m_bArrayInHeap Then
+     m_hVariable = LLVMBuildMalloc(g_hBuilder, m_hType, ByVal StrPtr(StrConv(m_t.sValue, vbFromUnicode)))
+    Else
+     m_hVariable = LLVMBuildAlloca(g_hBuilder, m_hType, ByVal StrPtr(StrConv(m_t.sValue, vbFromUnicode)))
+    End If
+    '///
+    'If m <= 0.0064@ Then 'LLVM generates extremely stupid code :(
+    ' LLVMBuildStore g_hBuilder, LLVMConstNull(m_hType), m_hVariable
+    'Else 'so we should call 'memset' instead...
+     h(0) = LLVMBuildPointerCast(g_hBuilder, m_hVariable, LLVMPointerType(LLVMInt8Type, 0), ByVal StrPtr(StrConv("ByRefTemp", vbFromUnicode)))
+     h(1) = LLVMConstNull(LLVMInt8Type)
+     h(2) = LLVMBuildIntCast(g_hBuilder, LLVMSizeOf(m_hType), g_objIntrinsicDataTypes(vbIntPtr_t).Handle, ByVal StrPtr(StrConv("SizeTemp", vbFromUnicode)))
+     h(3) = LLVMConstNull(LLVMInt32Type) 'align=unknown
+     h(4) = LLVMConstNull(LLVMInt1Type) 'isVolatile=False
+     LLVMBuildCall g_hBuilder, RuntimeLibraryGetFunction(internal_llvm_memset), h(0), 5, StrPtr(vbNullChar)
+    'End If
+   Else 'dynamic array
     m_hVariable = LLVMBuildAlloca(g_hBuilder, m_hType, ByVal StrPtr(StrConv(m_t.sValue, vbFromUnicode)))
     LLVMBuildStore g_hBuilder, LLVMConstPointerNull(m_hType), m_hVariable
    End If
@@ -193,9 +225,19 @@ Case 0 'dim
   End If
  ElseIf objContext.Module.FileType = 0 Then
   '///global variable
-  m_hVariable = LLVMAddGlobal(g_hModule, m_hType, ByVal StrPtr(StrConv(m_t.sValue, vbFromUnicode)))
-  '/// ???
-  LLVMSetInitializer m_hVariable, m_objDataType.GetDataType.CodegenDefaultValue(objContext)
+  'TODO: LLVM generates extremely stupid code. Should use BSS section.
+  If m_nType And &H400& Then 'array
+   If m_nDimemsionCount > 0 Then
+    m_hVariable = LLVMAddGlobal(g_hModule, m_hType, ByVal StrPtr(StrConv(m_t.sValue, vbFromUnicode)))
+    LLVMSetInitializer m_hVariable, LLVMConstNull(m_hType)
+   Else
+    m_hVariable = LLVMAddGlobal(g_hBuilder, m_hType, ByVal StrPtr(StrConv(m_t.sValue, vbFromUnicode)))
+    LLVMSetInitializer m_hVariable, LLVMConstPointerNull(m_hType)
+   End If
+  Else
+   m_hVariable = LLVMAddGlobal(g_hModule, m_hType, ByVal StrPtr(StrConv(m_t.sValue, vbFromUnicode)))
+   LLVMSetInitializer m_hVariable, m_objDataType.GetDataType.CodegenDefaultValue(objContext)
+  End If
  Else
   'TODO: class member variable
  End If
@@ -424,7 +466,7 @@ Case 0 'dim
      End If
      '///calc array size
      m_nArrayDimSize(i) = n2 - n1 + 0.0001@
-     If m_nArrayDimSize(i) >= 429296.7296@ Then
+     If m_nArrayDimSize(i) >= 429496.7296@ Then
       PrintError "Array size of one dimension must be smaller than 4294967296", m_t.nLine, m_t.nColumn
       Exit Function
      End If
@@ -439,8 +481,8 @@ Case 0 'dim
      Set m_objDimension(1, i) = obj1
     Next i
     '///XXX TODO:
-    If nArrayElementCount >= 429296.7296@ Then
-     PrintError "Currently element count of array must be smaller than 4294967296", m_t.nLine, m_t.nColumn
+    If nArrayElementCount >= 429496.7296@ Then
+     PrintError "Currently more than 4294967296 elements in fixed-size array is unsupported", m_t.nLine, m_t.nColumn
      Exit Function
     End If
     '///save array size
