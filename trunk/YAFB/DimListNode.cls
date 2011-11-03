@@ -59,7 +59,12 @@ Register = True
 End Function
 
 Private Function IASTNode_Codegen(ByVal objContext As clsVerifyContext, ByVal nParam1 As Long, ByVal nParam2 As Long, ByVal nParam3 As Long, ByVal nParam4 As Long) As Long
-'TODO:
+Dim i As Long
+Dim obj As IASTNode
+For i = 1 To m_nCount
+ Set obj = m_objSubNode(i)
+ obj.Codegen objContext, nParam1, nParam2, nParam3, nParam4
+Next i
 End Function
 
 

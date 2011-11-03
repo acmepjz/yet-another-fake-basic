@@ -45,6 +45,8 @@ Private m_objDataType As DataTypeNode 'must not be Nothing (??)
 
 Private m_objInitValue As IASTNode 'optional (??) only when 'const' ??
 
+Private m_objVariable As VariableNode 'optional (??) only when 'redim', 'redim preserve' and 'erase' ??
+
 '================================ LLVM ================================
 
 Private m_hType As Long 'not exactly
@@ -56,6 +58,14 @@ Private m_nArrayElementCount As Currency
 Private m_hConst_ArrayElementCount As Long
 
 Private m_bArrayInHeap As Boolean
+
+Friend Property Get VariableObject() As VariableNode
+Set VariableObject = m_objVariable
+End Property
+
+Friend Property Set VariableObject(ByVal obj As VariableNode)
+Set m_objVariable = obj
+End Property
 
 Friend Property Get ArrayDimensionSize(ByVal nIndex As Long) As Currency
 ArrayDimensionSize = m_nArrayDimSize(nIndex)
@@ -89,10 +99,10 @@ Case 4 'const
    Set objSrcType = m_objInitValue.GetType(nSrcFlags)
    If m_objDataType Is Nothing Then
     '///automatic data detect
-    If objSrcType.Flags And &H10& Then
+    If (objSrcType.Flags And &H10&) <> 0 And nSrcFlags = 0 Then
      SetDataTypeFromString objSrcType.Name
     Else
-     PrintError "Const variable can't have data type '" + objSrcType.Name + "'", m_t.nLine, m_t.nColumn
+     PrintError "Const variable can't have data type '" + objSrcType.NameEx(nSrcFlags) + "'", m_t.nLine, m_t.nColumn
      m_hConst = 0
      Exit Function
     End If
@@ -103,7 +113,7 @@ Case 4 'const
    Set objDestType = obj.GetType(nDestFlags)
    Select Case g_objTypeMgr.CheckTypeConversion(objSrcType, nSrcFlags, objDestType, nDestFlags)
    Case 0
-    PrintError "Type mismatch: can't convert data type '" + objSrcType.Name + "' to '" + objDestType.Name + "'", -1, -1
+    PrintError "Type mismatch: can't convert data type '" + objSrcType.NameEx(nSrcFlags) + "' to '" + objDestType.NameEx(nDestFlags) + "'", -1, -1
     m_hConst = 0
     Exit Function
    End Select
@@ -285,18 +295,62 @@ Friend Property Get VariableHandle() As Long
 VariableHandle = m_hVariable
 End Property
 
+Friend Sub CodegenErase(ByVal objContext As clsVerifyContext)
+Dim h(7) As Long
+'///
+If m_nDimemsionCount > 0 Then 'fixed-size array
+ '///generate destructor of elements in array
+ h(0) = LLVMBuildPointerCast(g_hBuilder, m_hVariable, LLVMPointerType(m_objDataType.GetDataType.Handle, 0), StrPtr(StrConv("ByRefTemp", vbFromUnicode)))
+ h(1) = m_hConst_ArrayElementCount
+ LLVMBuildCall g_hBuilder, m_objDataType.GetDataType.GetDefaultVectorDestructorFunction, h(0), 2, StrPtr(vbNullChar)
+ '///then memset
+ h(0) = LLVMBuildPointerCast(g_hBuilder, m_hVariable, LLVMPointerType(LLVMInt8Type, 0), ByVal StrPtr(StrConv("ByRefTemp", vbFromUnicode)))
+ h(1) = LLVMConstNull(LLVMInt8Type)
+ h(2) = LLVMBuildIntCast(g_hBuilder, LLVMSizeOf(m_hType), g_objIntrinsicDataTypes(vbIntPtr_t).Handle, ByVal StrPtr(StrConv("SizeTemp", vbFromUnicode)))
+ h(3) = LLVMConstNull(LLVMInt32Type) 'align=unknown
+ h(4) = LLVMConstNull(LLVMInt1Type) 'isVolatile=False
+ LLVMBuildCall g_hBuilder, RuntimeLibraryGetFunction(internal_llvm_memset), h(0), 5, StrPtr(vbNullChar)
+Else 'dynamic array
+ 'TODO:
+End If
+End Sub
+
 Private Function IASTNode_Codegen(ByVal objContext As clsVerifyContext, ByVal nParam1 As Long, ByVal nParam2 As Long, ByVal nParam3 As Long, ByVal nParam4 As Long) As Long
-'TODO: things other than 'Dim', etc.
+Dim obj As IASTNode
+Dim objType As clsTypeNode, nFlags As Long
+Dim objDim As DimNode
+'///
+Select Case m_nType And &HF&
+Case 3 'erase
+ '///check type
+ Set obj = m_objVariable
+ Set objType = obj.GetType(nFlags)
+ If nFlags And &H400& Then
+  'OK it's an array
+  Set objDim = m_objVariable.GetDimNode
+  If objDim Is Nothing Then
+   'TODO:
+   PrintPanic "Can't find DimNode!!! Something in unimplemented...", -1, -1
+  Else
+   objDim.CodegenErase objContext
+  End If
+ Else 'err, TODO:
+  PrintPanic "Passed a non-array data type '" + objType.NameEx(nFlags) + "' to 'Erase' statement", -1, -1
+ End If
+End Select
 End Function
 
 'TODO:flags
 Private Function IASTNode_GetType(nFlags As Long) As clsTypeNode
 Dim obj As IASTNode
 '///
+nFlags = 0
+'///
 Select Case m_nType And &HF&
 Case 0, 4 'dim, const (??)
  Set obj = m_objDataType
- Set IASTNode_GetType = obj.GetType(nFlags)
+ Set IASTNode_GetType = obj.GetType(0) '?
+ nFlags = m_nType And &H400&
 Case Else
  'TODO: things other than 'Dim', etc.
 End Select
@@ -427,7 +481,7 @@ Case 0 'dim
       Set objType = obj.GetType(nFlags)
       If g_objTypeMgr.CheckTypeConversion(objType, nFlags, g_objIntrinsicDataTypes(vbLong), 0) = 0 Then
        PrintError "Array lower bound " + CStr(i) + " of variable '" + m_t.sValue + "' type mismatch: trying convert '" + _
-       objType.Name + "' to 'Long'", m_t.nLine, m_t.nColumn
+       objType.NameEx(nFlags) + "' to 'Long'", m_t.nLine, m_t.nColumn
        Exit Function
       End If
       hValue = g_objTypeMgr.CodegenTypeConversion(objContext, hValue, objType, nFlags, g_objIntrinsicDataTypes(vbLong), 0, True)
@@ -451,7 +505,7 @@ Case 0 'dim
       Set objType = obj1.GetType(nFlags)
       If g_objTypeMgr.CheckTypeConversion(objType, nFlags, g_objIntrinsicDataTypes(vbLong), 0) = 0 Then
        PrintError "Array upper bound " + CStr(i) + " of variable '" + m_t.sValue + "' type mismatch: trying convert '" + _
-       objType.Name + "' to 'Long'", m_t.nLine, m_t.nColumn
+       objType.NameEx(nFlags) + "' to 'Long'", m_t.nLine, m_t.nColumn
        Exit Function
       End If
       hValue = g_objTypeMgr.CodegenTypeConversion(objContext, hValue, objType, nFlags, g_objIntrinsicDataTypes(vbLong), 0, True)
@@ -547,8 +601,30 @@ Case 4 'const
   '///register dependency
   g_objConstDAG.AddEdge m_objInitValue, Me
  End Select
+Case 3 'erase
+ Select Case objContext.Phase
+ Case verify_all
+  Set obj = m_objVariable
+  If Not obj.Verify(objContext) Then Exit Function
+  '///check type
+  Set objType = obj.GetType(nFlags)
+  If nFlags And &H400& Then
+   'OK it's an array
+  ElseIf objType.DataType = vbVariant Then 'TODO:
+   PrintError "Currently Variant as array is unsupport", -1, -1
+   Exit Function
+  Else 'err
+   PrintError "Passed a non-array data type '" + objType.NameEx(nFlags) + "' to 'Erase' statement", -1, -1
+   Exit Function
+  End If
+ End Select
+Case 1, 2 'redim and redim preserve
+ 'TODO:
+ Exit Function
 Case Else
- 'TODO: things other than 'Dim', etc.
+ 'XXX
+ Debug.Assert False
+ Exit Function
 End Select
 '///
 IASTNode_Verify = True

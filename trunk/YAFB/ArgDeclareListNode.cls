@@ -115,7 +115,7 @@ Dim hValue As Long
 Dim nLastFlags As Long
 Dim obj As IASTNode
 Dim objSrcType As clsTypeNode, nSrcFlags As Long
-Dim objDestType As clsTypeNode
+Dim objDestType As clsTypeNode, nDestFlags As Long
 '///
 Select Case objContext.Phase
 Case verify_const
@@ -149,8 +149,13 @@ Case verify_all
   If m_nFlags(i) And 4& Then
    If m_objDefault(i) Is Nothing Then
     '///get default value of data type
-    Set objDestType = m_obj(i).DataType.GetDataType
-    hValue = objDestType.CodegenDefaultValue
+    Set obj = m_obj(i)
+    Set objDestType = obj.GetType(nDestFlags)
+    If nDestFlags = 0 Then
+     hValue = objDestType.CodegenDefaultValue
+    Else
+     hValue = 0
+    End If
     '///TODO:
     If hValue Then
      With New ConstNode
@@ -158,22 +163,23 @@ Case verify_all
       Set m_objDefault(i) = .This
      End With
     Else
-     PrintError "Current default value of data type '" + objDestType.Name + "' is unsupported", -1, -1
+     PrintError "Current default value of data type '" + objDestType.NameEx(nDestFlags) + "' is unsupported", -1, -1
      Exit Function
     End If
    Else
     '///convert data type
     Set objSrcType = m_objDefault(i).GetType(nSrcFlags)
-    Set objDestType = m_obj(i).DataType.GetDataType
-    Select Case g_objTypeMgr.CheckTypeConversion(objSrcType, nSrcFlags, objDestType, 0)
+    Set obj = m_obj(i)
+    Set objDestType = obj.GetType(nDestFlags)
+    Select Case g_objTypeMgr.CheckTypeConversion(objSrcType, nSrcFlags, objDestType, nDestFlags)
     Case 0
-     PrintError "Type mismatch: can't convert data type '" + objSrcType.Name + "' to '" + objDestType.Name + "'", -1, -1
+     PrintError "Type mismatch: can't convert data type '" + objSrcType.NameEx(nSrcFlags) + "' to '" + objDestType.NameEx(nDestFlags) + "'", -1, -1
      Exit Function
     End Select
     '///
     hValue = m_objDefault(i).GetProperty(action_const_codegen)
     If Not CheckConstant(hValue) Then Exit Function
-    hValue = g_objTypeMgr.CodegenTypeConversion(objContext, hValue, objSrcType, nSrcFlags, objDestType, 0, True)
+    hValue = g_objTypeMgr.CodegenTypeConversion(objContext, hValue, objSrcType, nSrcFlags, objDestType, nDestFlags, True)
     If Not CheckConstant(hValue) Then Exit Function
     With New ConstNode
      .CreateIndirect objDestType, hValue

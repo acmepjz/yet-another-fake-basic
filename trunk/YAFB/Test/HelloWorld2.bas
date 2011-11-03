@@ -10,7 +10,7 @@ Private Const STD_INPUT_HANDLE As Long = -10&
 Private hStdErr As Long, hStdInput As Long
 
 Public Sub Main()
-Dim i As LongLong
+Dim i As LongLong 'HAHA VB6 doesn't know LongLong
 '///
 hStdInput = GetStdHandle(STD_INPUT_HANDLE)
 hStdErr = GetStdHandle(STD_ERROR_HANDLE)
@@ -53,6 +53,8 @@ End Function
 Private Sub PrintInteger(ByVal n As LongLong)
 Dim b(31) As Byte
 Dim lp As Long
+'///
+erase b
 '///
 If n < 0 Then
  n = -n

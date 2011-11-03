@@ -52,7 +52,7 @@ hVariable = objContext.CurrentFunction.GetTempVariable(objContext, objDestType, 
 LLVMBuildStore g_hBuilder, m_objCondition.Codegen(objContext, nParam1, nParam2, nParam3, nParam4), hVariable
 '///
 For i = 1 To m_nBlockCount
- m_objBlock(i).CodegenEx objContext, hVariable, objDestType, hBlockEnd
+ m_objBlock(i).CodegenEx objContext, hVariable, objDestType, nDestFlags, hBlockEnd
 Next i
 LLVMBuildBr g_hBuilder, hBlockEnd
 '///over

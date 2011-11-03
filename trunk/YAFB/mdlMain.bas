@@ -1,6 +1,8 @@
 Attribute VB_Name = "mdlMain"
 Option Explicit
 
+#Const Test = False
+
 Private Declare Function AllocConsole Lib "kernel32.dll" () As Long
 Private Declare Function GetStdHandle Lib "kernel32.dll" (ByVal nStdHandle As Long) As Long
 Private Declare Function WriteFile Lib "kernel32.dll" (ByVal hFile As Long, ByRef lpBuffer As Any, ByVal nNumberOfBytesToWrite As Long, ByRef lpNumberOfBytesWritten As Long, ByRef lpOverlapped As Any) As Long
@@ -287,10 +289,14 @@ g_nWordSize = 4
 '///
 If App.LogMode <> 1 Then
  'test only
+ #If Test Then
  GetArgv "-c " + App.Path + "\Test\HelloWorld2.bas"
  PatchExe Argv(0)
- '///
+ #Else
+ GetArgv vbNullString
+ PatchExe Argv(0)
  Exit Sub
+ #End If
 Else
  GetArgv Command
  '///get std handle
@@ -921,4 +927,59 @@ End If
 '///
 CopyMemory n1, b3(0), 8&
 UnsignedLongLongMultiply = n1
+End Function
+
+Public Function GetOperatorName(ByVal nOperator As enumTokenType) As String
+Select Case nOperator
+Case keyword_not
+ GetOperatorName = "Not"
+Case token_plus
+ GetOperatorName = "+"
+Case token_minus
+ GetOperatorName = "-"
+Case keyword_imp
+ GetOperatorName = "Imp"
+Case keyword_xor
+ GetOperatorName = "Xor"
+Case keyword_eqv
+ GetOperatorName = "Eqv"
+Case keyword_or
+ GetOperatorName = "Or"
+Case keyword_and
+ GetOperatorName = "And"
+Case token_gt
+ GetOperatorName = ">"
+Case token_lt
+ GetOperatorName = "<"
+Case token_ge
+ GetOperatorName = ">="
+Case token_le
+ GetOperatorName = "<="
+Case token_equal
+ GetOperatorName = "="
+Case token_ne
+ GetOperatorName = "<>"
+Case keyword_is
+ GetOperatorName = "Is"
+Case token_and
+ GetOperatorName = "&"
+Case keyword_mod
+ GetOperatorName = "Mod"
+Case token_backslash
+ GetOperatorName = "\"
+Case token_asterisk
+ GetOperatorName = "*"
+Case token_slash
+ GetOperatorName = "/"
+Case token_power
+ GetOperatorName = "^"
+Case token_shl
+ GetOperatorName = "<<"
+Case token_shr
+ GetOperatorName = ">>"
+Case token_rol
+ GetOperatorName = "<<<"
+Case token_ror
+ GetOperatorName = ">>>"
+End Select
 End Function

@@ -21,6 +21,9 @@ Private Declare Sub CopyMemory Lib "kernel32.dll" Alias "RtlMoveMemory" (ByRef D
 Friend Function CheckTypeConversion(ByVal objSrcType As clsTypeNode, ByVal nSrcFlags As Long, ByVal objDestType As clsTypeNode, ByVal nDestFlags As Long) As Long
 Dim nSrcType As VbVarType
 Dim nDestType As VbVarType
+'///TODO:array conversion
+If nSrcFlags Then Exit Function
+If nDestFlags Then Exit Function
 '///
 nSrcType = objSrcType.DataType
 nDestType = objDestType.DataType
@@ -121,8 +124,10 @@ End Select
 End Function
 
 'TODO:currency, string, etc.
-Friend Function CheckUnaryOperator(ByVal objType1 As clsTypeNode, ByVal nOperator As enumTokenType) As clsTypeNode
+Friend Function CheckUnaryOperator(ByVal objType1 As clsTypeNode, ByVal nFlags1 As Long, ByVal nOperator As enumTokenType) As clsTypeNode
 Dim nType1 As VbVarType
+'///
+If nFlags1 Then Exit Function
 '///
 If nOperator = token_plus Then
  Set CheckUnaryOperator = objType1
@@ -175,7 +180,7 @@ End Function
 
 'TODO:currency, string, etc.
 'TODO:overflow, etc.
-Friend Function CodegenUnaryOperator(ByVal objContext As clsVerifyContext, ByVal hValue1 As Long, ByVal objType1 As clsTypeNode, ByVal nOperator As enumTokenType, ByVal objDestType As clsTypeNode, ByVal bIsConstant As Boolean) As Long
+Friend Function CodegenUnaryOperator(ByVal objContext As clsVerifyContext, ByVal hValue1 As Long, ByVal objType1 As clsTypeNode, ByVal nFlags1 As Long, ByVal nOperator As enumTokenType, ByVal objDestType As clsTypeNode, ByVal bIsConstant As Boolean) As Long
 Dim s As String, lp As Long
 '///
 Select Case nOperator
@@ -223,31 +228,34 @@ End Select
 End Function
 
 'TODO:currency, string, etc.
-Friend Function CheckBinaryOperator(ByVal objType1 As clsTypeNode, ByVal objType2 As clsTypeNode, ByVal nOperator As enumTokenType) As clsTypeNode
+Friend Function CheckBinaryOperator(ByVal objType1 As clsTypeNode, ByVal nFlags1 As Long, ByVal objType2 As clsTypeNode, ByVal nFlags2 As Long, ByVal nOperator As enumTokenType) As clsTypeNode
 Dim nType1 As VbVarType
 Dim nType2 As VbVarType
-Dim nFlags1 As Long
-Dim nFlags2 As Long
 Dim nMaxSize As Long
+Dim nFlagsTmp1 As Long
+Dim nFlagsTmp2 As Long
+'///TODO:array conversion
+If nFlags1 Then Exit Function
+If nFlags2 Then Exit Function
 '///
 nType1 = objType1.DataType
 nType2 = objType2.DataType
-nFlags1 = objType1.Flags
-nFlags2 = objType2.Flags
+nFlagsTmp1 = objType1.Flags
+nFlagsTmp2 = objType2.Flags
 '///
 Select Case nOperator
 Case keyword_xor, keyword_or, keyword_and, keyword_eqv, keyword_imp
  If nType1 = vbBoolean And nType2 = vbBoolean Then
   Set CheckBinaryOperator = objType1
- ElseIf (nFlags1 And &HF&) = 3 Or (nFlags2 And &HF&) = 3 Then
-  If ((nFlags1 And &HF&) = 1 Or (nFlags1 And &HF&) = 2) And objType1.Size >= 4 Then
+ ElseIf (nFlagsTmp1 And &HF&) = 3 Or (nFlagsTmp2 And &HF&) = 3 Then
+  If ((nFlagsTmp1 And &HF&) = 1 Or (nFlagsTmp1 And &HF&) = 2) And objType1.Size >= 4 Then
    Set CheckBinaryOperator = objType1
-  ElseIf ((nFlags2 And &HF&) = 1 Or (nFlags2 And &HF&) = 2) And objType2.Size >= 4 Then
+  ElseIf ((nFlagsTmp2 And &HF&) = 1 Or (nFlagsTmp2 And &HF&) = 2) And objType2.Size >= 4 Then
    Set CheckBinaryOperator = objType2
   Else
    Set CheckBinaryOperator = g_objIntrinsicDataTypes(vbLong)
   End If
- ElseIf ((nFlags1 And &HF&) = 1 Or (nFlags1 And &HF&) = 2) And ((nFlags2 And &HF&) = 1 Or (nFlags2 And &HF&) = 2) Then
+ ElseIf ((nFlagsTmp1 And &HF&) = 1 Or (nFlagsTmp1 And &HF&) = 2) And ((nFlagsTmp2 And &HF&) = 1 Or (nFlagsTmp2 And &HF&) = 2) Then
   If objType1.Size >= objType2.Size Then
    If nType1 = vbBoolean Then
     Set CheckBinaryOperator = g_objIntrinsicDataTypes(vbInteger)
@@ -270,12 +278,12 @@ Case token_and
  'TODO:
  Set CheckBinaryOperator = g_objIntrinsicDataTypes(vbString)
 Case token_plus, token_minus, token_asterisk
- If (nFlags1 And &HF&) = 3 Or (nFlags2 And &HF&) = 3 Then
-  If ((nFlags1 And &HF&) = 1 Or (nFlags1 And &HF&) = 2) And objType1.Size <= 2 Then
+ If (nFlagsTmp1 And &HF&) = 3 Or (nFlagsTmp2 And &HF&) = 3 Then
+  If ((nFlagsTmp1 And &HF&) = 1 Or (nFlagsTmp1 And &HF&) = 2) And objType1.Size <= 2 Then
    Set CheckBinaryOperator = objType2
-  ElseIf ((nFlags2 And &HF&) = 1 Or (nFlags2 And &HF&) = 2) And objType2.Size <= 2 Then
+  ElseIf ((nFlagsTmp2 And &HF&) = 1 Or (nFlagsTmp2 And &HF&) = 2) And objType2.Size <= 2 Then
    Set CheckBinaryOperator = objType1
-  ElseIf (nFlags1 And &HF&) = 3 And (nFlags2 And &HF&) = 3 Then
+  ElseIf (nFlagsTmp1 And &HF&) = 3 And (nFlagsTmp2 And &HF&) = 3 Then
    If objType1.Size >= objType2.Size Then
     Set CheckBinaryOperator = objType1
    Else
@@ -284,11 +292,11 @@ Case token_plus, token_minus, token_asterisk
   Else
    Set CheckBinaryOperator = g_objIntrinsicDataTypes(vbDouble)
   End If
- ElseIf ((nFlags1 And &HF&) = 1 Or (nFlags1 And &HF&) = 2) And ((nFlags2 And &HF&) = 1 Or (nFlags2 And &HF&) = 2) Then
+ ElseIf ((nFlagsTmp1 And &HF&) = 1 Or (nFlagsTmp1 And &HF&) = 2) And ((nFlagsTmp2 And &HF&) = 1 Or (nFlagsTmp2 And &HF&) = 2) Then
   nMaxSize = objType1.Size
   If nMaxSize < objType2.Size Then nMaxSize = objType2.Size
   'XXX TODO:signed constant --> unsigned constant
-  If (nFlags1 And &HF&) = 1 Or (nFlags2 And &HF&) = 1 Or nOperator = token_minus Then
+  If (nFlagsTmp1 And &HF&) = 1 Or (nFlagsTmp2 And &HF&) = 1 Or nOperator = token_minus Then
    Select Case nMaxSize
    Case 1
     Set CheckBinaryOperator = g_objIntrinsicDataTypes(vbSignedByte)
@@ -313,14 +321,14 @@ Case token_plus, token_minus, token_asterisk
   End If
  End If
 Case token_backslash, keyword_mod
- If (nFlags1 And &HF&) = 3 Or (nFlags2 And &HF&) = 3 Then
-  If ((nFlags1 And &HF&) = 1 Or (nFlags1 And &HF&) = 2) Then
+ If (nFlagsTmp1 And &HF&) = 3 Or (nFlagsTmp2 And &HF&) = 3 Then
+  If ((nFlagsTmp1 And &HF&) = 1 Or (nFlagsTmp1 And &HF&) = 2) Then
    If objType1.Size <= 4 Then
     Set CheckBinaryOperator = g_objIntrinsicDataTypes(vbLong)
    Else
     Set CheckBinaryOperator = g_objIntrinsicDataTypes(vbLongLong)
    End If
-  ElseIf ((nFlags2 And &HF&) = 1 Or (nFlags2 And &HF&) = 2) Then
+  ElseIf ((nFlagsTmp2 And &HF&) = 1 Or (nFlagsTmp2 And &HF&) = 2) Then
    If objType2.Size <= 4 Then
     Set CheckBinaryOperator = g_objIntrinsicDataTypes(vbLong)
    Else
@@ -329,12 +337,12 @@ Case token_backslash, keyword_mod
   Else
    Set CheckBinaryOperator = g_objIntrinsicDataTypes(vbLong)
   End If
- ElseIf ((nFlags1 And &HF&) = 1 Or (nFlags1 And &HF&) = 2) And ((nFlags2 And &HF&) = 1 Or (nFlags2 And &HF&) = 2) Then
+ ElseIf ((nFlagsTmp1 And &HF&) = 1 Or (nFlagsTmp1 And &HF&) = 2) And ((nFlagsTmp2 And &HF&) = 1 Or (nFlagsTmp2 And &HF&) = 2) Then
   nMaxSize = objType1.Size
   If nMaxSize < objType2.Size Then nMaxSize = objType2.Size
   'XXX TODO:signed constant --> unsigned constant
-  'If (nFlags1 And &HF&) = 1 Or (nFlags2 And &HF&) = 1 Then
-  If (nFlags1 And &HF&) = 1 Then 'dirty workaround
+  'If (nFlagsTmp1 And &HF&) = 1 Or (nFlagsTmp2 And &HF&) = 1 Then
+  If (nFlagsTmp1 And &HF&) = 1 Then 'dirty workaround
    Select Case nMaxSize
    Case 1
     Set CheckBinaryOperator = g_objIntrinsicDataTypes(vbSignedByte)
@@ -365,21 +373,21 @@ End Function
 
 'TODO:currency, string, etc.
 'TODO:overflow, etc. (using LLVM intrinsic functions)
-Friend Function CodegenBinaryOperator(ByVal objContext As clsVerifyContext, ByVal hValue1 As Long, ByVal objType1 As clsTypeNode, ByVal hValue2 As Long, ByVal objType2 As clsTypeNode, ByVal nOperator As enumTokenType, ByVal objDestType As clsTypeNode, ByVal bIsConstant As Boolean) As Long
+Friend Function CodegenBinaryOperator(ByVal objContext As clsVerifyContext, ByVal hValue1 As Long, ByVal objType1 As clsTypeNode, ByVal nFlags1 As Long, ByVal hValue2 As Long, ByVal objType2 As clsTypeNode, ByVal nFlags2 As Long, ByVal nOperator As enumTokenType, ByVal objDestType As clsTypeNode, ByVal bIsConstant As Boolean) As Long
 Dim objType As clsTypeNode
 Dim i As Long
 Dim n(7) As Long
 Dim f1 As Double, f2 As Double, f3 As Double
 Dim n1 As Currency, n2 As Currency
-Dim nFlags1 As Long
-Dim nFlags2 As Long
+Dim nFlagsTmp1 As Long
+Dim nFlagsTmp2 As Long
 '///
-nFlags1 = objType1.Flags
-nFlags2 = objType2.Flags
+nFlagsTmp1 = objType1.Flags
+nFlagsTmp2 = objType2.Flags
 '///
 Select Case nOperator
 Case token_gt, token_lt, token_ge, token_le, token_equal, token_ne
- Set objType = CheckBinaryOperator(objType1, objType2, token_plus) '??? TODO:
+ Set objType = CheckBinaryOperator(objType1, nFlags1, objType2, nFlags2, token_plus) '??? TODO:
  hValue1 = CodegenTypeConversion(objContext, hValue1, objType1, 0, objType, 0, bIsConstant)
  hValue2 = CodegenTypeConversion(objContext, hValue2, objType2, 0, objType, 0, bIsConstant)
  '///
@@ -406,7 +414,7 @@ Case token_gt, token_lt, token_ge, token_le, token_equal, token_ne
    hValue1 = LLVMBuildFCmp(g_hBuilder, i, hValue1, hValue2, StrPtr(StrConv("CmpTemp", vbFromUnicode)))
   End If
  Case 1, 2 'signed and unsigned integer
-  If (nFlags1 And &HF&) = 2 And (nFlags1 And &HF&) = 2 Then
+  If (nFlagsTmp1 And &HF&) = 2 And (nFlagsTmp1 And &HF&) = 2 Then
    Select Case nOperator
    Case token_gt
     i = LLVMIntUGT
@@ -427,8 +435,8 @@ Case token_gt, token_lt, token_ge, token_le, token_equal, token_ne
    Else
     hValue1 = LLVMBuildICmp(g_hBuilder, i, hValue1, hValue2, StrPtr(StrConv("CmpTemp", vbFromUnicode)))
    End If
-  ElseIf ((nFlags1 And &HF&) = 1 And (objType1.Size > objType2.Size Or (nFlags2 And &HF&) = 1)) Or _
-  ((nFlags2 And &HF&) = 1 And objType1.Size < objType2.Size) Then
+  ElseIf ((nFlagsTmp1 And &HF&) = 1 And (objType1.Size > objType2.Size Or (nFlagsTmp2 And &HF&) = 1)) Or _
+  ((nFlagsTmp2 And &HF&) = 1 And objType1.Size < objType2.Size) Then
    Select Case nOperator
    Case token_gt
     i = LLVMIntSGT
@@ -451,9 +459,9 @@ Case token_gt, token_lt, token_ge, token_le, token_equal, token_ne
    End If
   Else 'XXX: signed/unsigned mismatch
    '///
-   PrintWarning "signed/unsigned mismatch: '" + objType1.Name + "' and '" + objType2.Name + "'", -1, -1
+   PrintWarning "signed/unsigned mismatch: '" + objType1.NameEx(nFlags1) + "' and '" + objType2.NameEx(nFlags2) + "'", -1, -1
    '///
-   If (nFlags1 And &HF&) = 2 Then
+   If (nFlagsTmp1 And &HF&) = 2 Then
     Select Case nOperator
     Case token_gt
      i = LLVMIntUGT

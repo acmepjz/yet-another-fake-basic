@@ -144,6 +144,9 @@ Public Const vbUnsignedLongLong As Long = 21
 Public Const vbIntPtr_t As Long = 37
 Public Const vbUIntPtr_t As Long = 38
 
+Public Const vbLongLongLong As Long = &HC0&
+Public Const vbUnsignedLongLongLong As Long = &HC1&
+
 Public Sub SetupRuntimeLibrary()
 Dim i(7) As Long
 '////////setup default (and extension) types
@@ -174,6 +177,14 @@ With New clsTypeNode
 End With
 With New clsTypeNode
  .SetIntrinsic vbUnsignedLongLong, "UnsignedLongLong", LLVMInt64Type, 8, &H72
+End With
+'///int128 (experimental)
+i(0) = LLVMIntType(128)
+With New clsTypeNode
+ .SetIntrinsic vbLongLongLong, "LongLongLong", i(0), 16, &H71
+End With
+With New clsTypeNode
+ .SetIntrinsic vbUnsignedLongLongLong, "UnsignedLongLongLong", i(0), 16, &H72
 End With
 '///intptr_t
 Select Case g_nWordSize

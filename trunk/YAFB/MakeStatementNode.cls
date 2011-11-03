@@ -64,7 +64,7 @@ If objContext.Phase = verify_all Then
  '///
  Select Case g_objTypeMgr.CheckTypeConversion(objSrcType, nSrcFlags, objDestType, nDestFlags)
  Case 0
-  PrintError "Type mismatch: can't convert data type '" + objSrcType.Name + "' to '" + objDestType.Name + "'", -1, -1
+  PrintError "Type mismatch: can't convert data type '" + objSrcType.NameEx(nSrcFlags) + "' to '" + objDestType.NameEx(nDestFlags) + "'", -1, -1
   Exit Function
  End Select
 End If

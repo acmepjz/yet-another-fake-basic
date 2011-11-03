@@ -168,16 +168,16 @@ LLVMBuildCondBr g_hBuilder, hValue, hBlockForStepLesserThanZero, hBlockFor
 '///if step>0 then if v>end then over
 LLVMPositionBuilderAtEnd g_hBuilder, hBlockForStepGreaterThanZero
 hValue = LLVMBuildLoad(g_hBuilder, hVariable, StrPtr(StrConv("ForVariableTemp", vbFromUnicode)))
-hValue = g_objTypeMgr.CodegenBinaryOperator(objContext, hValue, objDestType, _
+hValue = g_objTypeMgr.CodegenBinaryOperator(objContext, hValue, objDestType, nDestFlags, _
 LLVMBuildLoad(g_hBuilder, hEndVariable, StrPtr(StrConv("ForEndTemp", vbFromUnicode))), _
-objDestType, token_gt, Nothing, False)
+objDestType, nDestFlags, token_gt, Nothing, False)
 LLVMBuildCondBr g_hBuilder, hValue, m_hForEndBlock, hBlockFor
 '///if step<0 then if v<end then over
 LLVMPositionBuilderAtEnd g_hBuilder, hBlockForStepLesserThanZero
 hValue = LLVMBuildLoad(g_hBuilder, hVariable, StrPtr(StrConv("ForVariableTemp", vbFromUnicode)))
-hValue = g_objTypeMgr.CodegenBinaryOperator(objContext, hValue, objDestType, _
+hValue = g_objTypeMgr.CodegenBinaryOperator(objContext, hValue, objDestType, nDestFlags, _
 LLVMBuildLoad(g_hBuilder, hEndVariable, StrPtr(StrConv("ForEndTemp", vbFromUnicode))), _
-objDestType, token_lt, Nothing, False)
+objDestType, nDestFlags, token_lt, Nothing, False)
 LLVMBuildCondBr g_hBuilder, hValue, m_hForEndBlock, hBlockFor
 '///codegen for body
 objContext.Module.AddExitStack Me
@@ -189,9 +189,9 @@ obj.Codegen objContext, nParam1, nParam2, nParam3, nParam4
 objContext.Module.RemoveExitStack
 '///
 hValue = LLVMBuildLoad(g_hBuilder, hVariable, StrPtr(StrConv("ForVariableTemp", vbFromUnicode)))
-hValue = g_objTypeMgr.CodegenBinaryOperator(objContext, hValue, objDestType, _
+hValue = g_objTypeMgr.CodegenBinaryOperator(objContext, hValue, objDestType, nDestFlags, _
 LLVMBuildLoad(g_hBuilder, hStepVariable, StrPtr(StrConv("StepTemp", vbFromUnicode))), _
-objSrcType, token_plus, objDestType, False)
+objSrcType, nSrcFlags, token_plus, objDestType, False)
 LLVMBuildStore g_hBuilder, hValue, hVariable
 LLVMBuildBr g_hBuilder, hBlockForStepCheckGreaterThanZero
 '///over
@@ -225,8 +225,8 @@ If objContext.Phase = verify_all Then
  Set obj = m_objVariable
  Set objDestType = obj.GetType(nDestFlags)
  '///
- If (objDestType.Flags And &H40&) = 0 Then
-  PrintError "Type mismatch: can't use data type '" + objDestType.Name + "' for 'For' variable", -1, -1
+ If (objDestType.Flags And &H40&) = 0 Or nDestFlags <> 0 Then
+  PrintError "Type mismatch: can't use data type '" + objDestType.NameEx(nDestFlags) + "' for 'For' variable", -1, -1
   Exit Function
  End If
  '///
@@ -234,7 +234,7 @@ If objContext.Phase = verify_all Then
  nSrcFlags = 0
  Set objSrcType = m_objStartValue.GetType(nSrcFlags)
  If g_objTypeMgr.CheckTypeConversion(objSrcType, nSrcFlags, objDestType, nDestFlags) = 0 Then
-  PrintError "Type mismatch: can't convert data type '" + objSrcType.Name + "' to '" + objDestType.Name + "'", -1, -1
+  PrintError "Type mismatch: can't convert data type '" + objSrcType.NameEx(nSrcFlags) + "' to '" + objDestType.NameEx(nDestFlags) + "'", -1, -1
   Exit Function
  End If
  '///
@@ -242,7 +242,7 @@ If objContext.Phase = verify_all Then
  nSrcFlags = 0
  Set objSrcType = m_objEndValue.GetType(nSrcFlags)
  If g_objTypeMgr.CheckTypeConversion(objSrcType, nSrcFlags, objDestType, nDestFlags) = 0 Then
-  PrintError "Type mismatch: can't convert data type '" + objSrcType.Name + "' to '" + objDestType.Name + "'", -1, -1
+  PrintError "Type mismatch: can't convert data type '" + objSrcType.NameEx(nSrcFlags) + "' to '" + objDestType.NameEx(nDestFlags) + "'", -1, -1
   Exit Function
  End If
  '///
@@ -251,7 +251,7 @@ If objContext.Phase = verify_all Then
   nSrcFlags = 0
   Set objSrcType = m_objStepValue.GetType(nSrcFlags)
   If g_objTypeMgr.CheckTypeConversion(objSrcType, nSrcFlags, objDestType, nDestFlags) = 0 Then
-   PrintError "Type mismatch: can't convert data type '" + objSrcType.Name + "' to '" + objDestType.Name + "'", -1, -1
+   PrintError "Type mismatch: can't convert data type '" + objSrcType.NameEx(nSrcFlags) + "' to '" + objDestType.NameEx(nDestFlags) + "'", -1, -1
    Exit Function
   End If
  End If

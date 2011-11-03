@@ -128,8 +128,8 @@ If objContext.Phase = verify_all Then
   '///
   nFlags = 0
   Set objType = m_objDoCondition.GetType(nFlags)
-  If (objType.Flags And &H10&) = 0 Then
-   PrintError "Data type '" + objType.Name + "' can't use for condition of 'Do' statement", -1, -1
+  If (objType.Flags And &H10&) = 0 Or nFlags <> 0 Then
+   PrintError "Data type '" + objType.NameEx(nFlags) + "' can't use for condition of 'Do' statement", -1, -1
    Exit Function
   End If
  End If
@@ -138,8 +138,8 @@ If objContext.Phase = verify_all Then
   '///
   nFlags = 0
   Set objType = m_objLoopCondition.GetType(nFlags)
-  If (objType.Flags And &H10&) = 0 Then
-   PrintError "Data type '" + objType.Name + "' can't use for condition of 'Loop' statement", -1, -1
+  If (objType.Flags And &H10&) = 0 Or nFlags <> 0 Then
+   PrintError "Data type '" + objType.NameEx(nFlags) + "' can't use for condition of 'Loop' statement", -1, -1
    Exit Function
   End If
  End If

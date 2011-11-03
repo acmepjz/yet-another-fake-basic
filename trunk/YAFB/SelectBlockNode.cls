@@ -86,7 +86,7 @@ If Not obj.Verify(objContext) Then Exit Function
 IASTNode_Verify = True
 End Function
 
-Friend Sub CodegenEx(ByVal objContext As clsVerifyContext, ByVal hVariable As Long, ByVal objDestType As clsTypeNode, ByVal hBlockEnd As Long)
+Friend Sub CodegenEx(ByVal objContext As clsVerifyContext, ByVal hVariable As Long, ByVal objDestType As clsTypeNode, ByVal nDestFlags As Long, ByVal hBlockEnd As Long)
 Dim obj As IASTNode
 Dim hFunction As Long
 Dim hBlock As Long
@@ -115,8 +115,8 @@ If m_nCondCount > 0 Then
    hValue = LLVMBuildLoad(g_hBuilder, hVariable, lp2)
    '///
    LLVMBuildCondBr g_hBuilder, _
-   g_objTypeMgr.CodegenBinaryOperator(objContext, hValue, objDestType, _
-   m_objCond0(i).Codegen(objContext, 0, 0, 0, 0), objSrcType, nType, Nothing, False), _
+   g_objTypeMgr.CodegenBinaryOperator(objContext, hValue, objDestType, nDestFlags, _
+   m_objCond0(i).Codegen(objContext, 0, 0, 0, 0), objSrcType, nSrcFlags, nType, Nothing, False), _
    hBlock, hBlockNext
   Case keyword_to
    hBlockNext2 = LLVMAppendBasicBlock(hFunction, lp)
@@ -125,14 +125,14 @@ If m_nCondCount > 0 Then
    hValue = LLVMBuildLoad(g_hBuilder, hVariable, lp2)
    '///
    LLVMBuildCondBr g_hBuilder, _
-   g_objTypeMgr.CodegenBinaryOperator(objContext, hValue, objDestType, _
-   m_objCond0(i).Codegen(objContext, 0, 0, 0, 0), objSrcType, token_ge, Nothing, False), _
+   g_objTypeMgr.CodegenBinaryOperator(objContext, hValue, objDestType, nDestFlags, _
+   m_objCond0(i).Codegen(objContext, 0, 0, 0, 0), objSrcType, nSrcFlags, token_ge, Nothing, False), _
    hBlockNext2, hBlockNext
    '///
    LLVMPositionBuilderAtEnd g_hBuilder, hBlockNext2
    LLVMBuildCondBr g_hBuilder, _
-   g_objTypeMgr.CodegenBinaryOperator(objContext, hValue, objDestType, _
-   m_objCond1(i).Codegen(objContext, 0, 0, 0, 0), objSrcType, token_le, Nothing, False), _
+   g_objTypeMgr.CodegenBinaryOperator(objContext, hValue, objDestType, nDestFlags, _
+   m_objCond1(i).Codegen(objContext, 0, 0, 0, 0), objSrcType, nSrcFlags, token_le, Nothing, False), _
    hBlock, hBlockNext
   Case Else
    PrintPanic "Unexpected 'Case' block type: " + CStr(nType), -1, -1
@@ -161,14 +161,14 @@ For i = 1 To m_nCondCount
  nSrcFlags = 0
  Set objSrcType = m_objCond0(i).GetType(nSrcFlags)
  If g_objTypeMgr.CheckTypeConversion(objSrcType, nSrcFlags, objDestType, nDestFlags) = 0 Then
-  PrintError "Type mismatch: can't convert data type '" + objSrcType.Name + "' to '" + objDestType.Name + "'", -1, -1
+  PrintError "Type mismatch: can't convert data type '" + objSrcType.NameEx(nSrcFlags) + "' to '" + objDestType.NameEx(nDestFlags) + "'", -1, -1
   Exit Function
  End If
  If Not m_objCond1(i) Is Nothing Then
   nSrcFlags = 0
   Set objSrcType = m_objCond1(i).GetType(nSrcFlags)
   If g_objTypeMgr.CheckTypeConversion(objSrcType, nSrcFlags, objDestType, nDestFlags) = 0 Then
-   PrintError "Type mismatch: can't convert data type '" + objSrcType.Name + "' to '" + objDestType.Name + "'", -1, -1
+   PrintError "Type mismatch: can't convert data type '" + objSrcType.NameEx(nSrcFlags) + "' to '" + objDestType.NameEx(nDestFlags) + "'", -1, -1
    Exit Function
   End If
  End If

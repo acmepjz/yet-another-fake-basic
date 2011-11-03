@@ -25,6 +25,9 @@ Public Function Codegen(ByVal objContext As clsVerifyContext, ByVal nParam1 As L
 '
 End Function
 
+'nFlags:
+'0=normal
+'&H400=array
 Public Function GetType(ByRef nFlags As Long) As clsTypeNode
 '
 End Function

@@ -128,15 +128,19 @@ Public Enum enumTokenType
  token_backslash = 19 '\
  token_equal = 20 '=
  token_power = 21 '^
- token_lt = 22
- token_gt = 23
- token_le = 24
- token_ge = 25
- token_ne = 26
- token_and = 27
+ token_lt = 22 '<
+ token_gt = 23 '>
+ token_le = 24 '<=|=<
+ token_ge = 25 '>=|=>
+ token_ne = 26 '<>|><
+ token_and = 27 '&
  token_currencynum = 28
  token_datenum = 29
  token_linenumber = 30
+ token_shl = 31 '<<
+ token_shr = 32 '>>
+ token_rol = 33 '<<<
+ token_ror = 34 '>>>
  '///in frm and ctl
  token_guid = 101
  '### BEGIN KEYWORD ENUM
@@ -148,70 +152,74 @@ Public Enum enumTokenType
  keyword_byval = 1006
  keyword_call = 1007
  keyword_case = 1008
- keyword_close = 1009
- keyword_const = 1010
- keyword_declare = 1011
- keyword_dim = 1012
- keyword_do = 1013
- keyword_each = 1014
- keyword_else = 1015
- keyword_elseif = 1016
- keyword_end = 1017
- keyword_enum = 1018
- keyword_eqv = 1019
- keyword_exit = 1020
- keyword_false = 1021
- keyword_for = 1022
- keyword_friend = 1023
- keyword_function = 1024
- keyword_get = 1025
- keyword_global = 1026
- keyword_goto = 1027
- keyword_if = 1028
- keyword_imp = 1029
- keyword_in = 1030
- keyword_input = 1031
- keyword_is = 1032
- keyword_let = 1033
- keyword_lib = 1034
- keyword_line = 1035
- keyword_loop = 1036
- keyword_lset = 1037
- keyword_mod = 1038
- keyword_new = 1039
- keyword_next = 1040
- keyword_not = 1041
- keyword_on = 1042
- keyword_open = 1043
- keyword_option = 1044
- keyword_optional = 1045
- keyword_or = 1046
- keyword_paramarray = 1047
- keyword_preserve = 1048
- keyword_print = 1049
- keyword_private = 1050
- keyword_property = 1051
- keyword_public = 1052
- keyword_put = 1053
- keyword_raiseevent = 1054
- keyword_redim = 1055
- keyword_rset = 1056
- keyword_select = 1057
- keyword_set = 1058
- keyword_static = 1059
- keyword_step = 1060
- keyword_sub = 1061
- keyword_then = 1062
- keyword_to = 1063
- keyword_true = 1064
- keyword_type = 1065
- keyword_until = 1066
- keyword_wend = 1067
- keyword_while = 1068
- keyword_with = 1069
- keyword_withevents = 1070
- keyword_write = 1071
- keyword_xor = 1072
+ keyword_cdecl = 1009
+ keyword_close = 1010
+ keyword_const = 1011
+ keyword_declare = 1012
+ keyword_dim = 1013
+ keyword_do = 1014
+ keyword_each = 1015
+ keyword_else = 1016
+ keyword_elseif = 1017
+ keyword_end = 1018
+ keyword_enum = 1019
+ keyword_eqv = 1020
+ keyword_erase = 1021
+ keyword_exit = 1022
+ keyword_false = 1023
+ keyword_fastcall = 1024
+ keyword_for = 1025
+ keyword_friend = 1026
+ keyword_function = 1027
+ keyword_get = 1028
+ keyword_global = 1029
+ keyword_goto = 1030
+ keyword_if = 1031
+ keyword_imp = 1032
+ keyword_in = 1033
+ keyword_input = 1034
+ keyword_is = 1035
+ keyword_let = 1036
+ keyword_lib = 1037
+ keyword_line = 1038
+ keyword_loop = 1039
+ keyword_lset = 1040
+ keyword_mod = 1041
+ keyword_new = 1042
+ keyword_next = 1043
+ keyword_not = 1044
+ keyword_on = 1045
+ keyword_open = 1046
+ keyword_option = 1047
+ keyword_optional = 1048
+ keyword_or = 1049
+ keyword_paramarray = 1050
+ keyword_preserve = 1051
+ keyword_print = 1052
+ keyword_private = 1053
+ keyword_property = 1054
+ keyword_public = 1055
+ keyword_put = 1056
+ keyword_raiseevent = 1057
+ keyword_redim = 1058
+ keyword_rset = 1059
+ keyword_select = 1060
+ keyword_set = 1061
+ keyword_static = 1062
+ keyword_stdcall = 1063
+ keyword_step = 1064
+ keyword_sub = 1065
+ keyword_then = 1066
+ keyword_to = 1067
+ keyword_true = 1068
+ keyword_type = 1069
+ keyword_until = 1070
+ keyword_wend = 1071
+ keyword_while = 1072
+ keyword_with = 1073
+ keyword_withevents = 1074
+ keyword_write = 1075
+ keyword_xor = 1076
  '### END KEYWORD ENUM
 End Enum
 
@@ -221,12 +229,13 @@ Public Type typeToken
  nColumn As Long
  sValue As String
  '///some stupid attrubites
- nFlags As Long
+ nFlags As Integer
  '1=some spaces before it
  'etc.
- nFlags2 As Long
+ nFlags2 As Integer
  '1=begin with "."
  'etc.
+ nReserved2 As Long
  nReserved3 As Long
  nReserved4 As Long
 End Type
@@ -283,6 +292,7 @@ Public Enum enumASTNodeType
  node_raiseeventstat = 124 '{raiseevent}<array_or_func>
  node_debugassert = 125 '{debug}{point}{assert}<exp>
  node_debugprint = 126 '{debug}{point}{print}<printlist>
+ node_erasestat = 127 '{erase}<var>({,}<var>)* '?? TODO:
  '///
  '... and lock #1,xx to xx unlock #1,xx to xx (unsupported)
  'hidden

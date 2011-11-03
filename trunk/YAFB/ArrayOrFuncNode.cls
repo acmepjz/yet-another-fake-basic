@@ -29,6 +29,10 @@ Private m_nCount As Long
 Private m_objVariable As DimNode
 Private m_objFunction As FunctionNode
 
+Private m_nVariableOverallFlags As Long
+'0=normal
+'&H400=array
+
 Private m_hConst As Long
 
 Friend Function IsSameVariable(ByVal obj As ArrayOrFuncNode) As Boolean
@@ -67,9 +71,11 @@ End Function
 'TODO:
 Private Function IASTNode_GetType(nFlags As Long) As clsTypeNode
 Dim obj As IASTNode
+nFlags = 0
 If Not m_objVariable Is Nothing Then
  Set obj = m_objVariable
- Set IASTNode_GetType = obj.GetType(nFlags)
+ Set IASTNode_GetType = obj.GetType(0)
+ nFlags = m_nVariableOverallFlags
  Exit Function
 End If
 If Not m_objFunction Is Nothing Then
@@ -163,17 +169,17 @@ Case verify_all
     If m_nCount > 0 Then 'check if it's "a()"
      If m_objArgList(1) Is Nothing Then m_nCount = 0 '???
     End If
-    If m_nCount = 0 Then
-     PrintError "Currently get whole array is unsupported", -1, -1
-     Exit Function
-    End If
-    i = objVariable.DimensionCount
-    If i > 0 Then
-     j = m_objArgList(1).ArgumentCount
-     If i <> j Then
-      PrintError "Fixed-size array '" + m_t.sValue + "' dimension mismatch: '" + CStr(j) + _
-      "' is wrong, should be '" + CStr(i) + "'", m_t.nLine, m_t.nColumn
-      Exit Function
+    If m_nCount = 0 Then 'get whole array (experimental)
+     m_nVariableOverallFlags = &H400&
+    Else
+     i = objVariable.DimensionCount
+     If i > 0 Then
+      j = m_objArgList(1).ArgumentCount
+      If i <> j Then
+       PrintError "Fixed-size array '" + m_t.sValue + "' dimension mismatch: '" + CStr(j) + _
+       "' is wrong, should be '" + CStr(i) + "'", m_t.nLine, m_t.nColumn
+       Exit Function
+      End If
      End If
     End If
    ElseIf objVariable.DataType.GetDataType.DataType = vbVariant Then
@@ -220,7 +226,7 @@ Case verify_all
     Set objSrcType = obj.GetType(nSrcFlags)
     If g_objTypeMgr.CheckTypeConversion(objSrcType, nSrcFlags, g_objIntrinsicDataTypes(vbLong), 0) = 0 Then
      PrintError "Array subscript '" + CStr(i) + "' type mismatch: trying convert '" + _
-     objSrcType.Name + "' to 'Long'", m_t.nLine, m_t.nColumn
+     objSrcType.NameEx(nSrcFlags) + "' to 'Long'", m_t.nLine, m_t.nColumn
      Exit Function
     End If
    Next i
@@ -270,15 +276,15 @@ Case verify_all
      Set objDestType = obj1.GetType(nDestFlags)
      If g_objTypeMgr.CheckTypeConversion(objSrcType, nSrcFlags, objDestType, nDestFlags) = 0 Then
       PrintError "Argument " + CStr(i) + " of function '" + m_t.sValue + "' type mismatch: trying convert '" + _
-      objSrcType.Name + "' to '" + objDestType.Name + "'", m_t.nLine, m_t.nColumn
+      objSrcType.NameEx(nSrcFlags) + "' to '" + objDestType.NameEx(nDestFlags) + "'", m_t.nLine, m_t.nColumn
       Exit Function
      End If
      '///
      If (objArgDeclareList.ArgumentFlags(i) And 1&) = 0 Then 'declaration is ByRef xxx
       If m_objArgList(1).ArgumentFlags(i) And 1& Then 'ByVal xxx
-       If g_objTypeMgr.CheckTypeConversion(objSrcType, nSrcFlags, g_objIntrinsicDataTypes(vbLong), 0) = 0 Then
+       If g_objTypeMgr.CheckTypeConversion(objSrcType, nSrcFlags, g_objIntrinsicDataTypes(vbIntPtr_t), 0) = 0 Then
         PrintError "Argument " + CStr(i) + " of function '" + m_t.sValue + "' type mismatch: trying convert '" + _
-        objSrcType.Name + "' to 'Long'", m_t.nLine, m_t.nColumn
+        objSrcType.NameEx(nSrcFlags) + "' to 'IntPtr_t'", m_t.nLine, m_t.nColumn
         Exit Function
        End If
       ElseIf objDestType.DataType <> vbEmpty Then 'Any
@@ -288,9 +294,9 @@ Case verify_all
        On Error GoTo 0
        If Not objVar1 Is Nothing Then
         If objVar1.IsLValue Then
-         If Not objSrcType Is objDestType Then
+         If nSrcFlags <> nDestFlags Or Not objSrcType Is objDestType Then
           PrintError "ByRef argument " + CStr(i) + " of function '" + m_t.sValue + "' type mismatch: '" + _
-          objSrcType.Name + "' and '" + objDestType.Name + "'", m_t.nLine, m_t.nColumn
+          objSrcType.NameEx(nSrcFlags) + "' and '" + objDestType.NameEx(nDestFlags) + "'", m_t.nLine, m_t.nColumn
           Exit Function
          End If
         End If
@@ -323,6 +329,12 @@ If Not m_objVariable Is Nothing Then
   IsLValue = True
  End If
 End If
+End Function
+
+'can be Nothing
+'TODO:
+Friend Function GetDimNode() As DimNode
+Set GetDimNode = m_objVariable
 End Function
 
 'TODO:
@@ -430,7 +442,7 @@ If Not m_objFunction Is Nothing Then
    If (objArgDeclareList.ArgumentFlags(i) And 1&) = 0 Then 'declaration is ByRef xxx
     If m_objArgList(1).ArgumentFlags(i) And 1& Then 'ByVal xxx
      h = obj.Codegen(objContext, 0, 0, 0, 0)
-     h = g_objTypeMgr.CodegenTypeConversion(objContext, h, objSrcType, nSrcFlags, g_objIntrinsicDataTypes(vbLong), 0, False)
+     h = g_objTypeMgr.CodegenTypeConversion(objContext, h, objSrcType, nSrcFlags, g_objIntrinsicDataTypes(vbIntPtr_t), 0, False)
      hArguments(i) = LLVMBuildIntToPtr(g_hBuilder, h, LLVMPointerType(objDestType.Handle, 0), StrPtr(StrConv("ByValTemp", vbFromUnicode)))
     Else
      On Error Resume Next
@@ -442,7 +454,7 @@ If Not m_objFunction Is Nothing Then
      End If
      '///
      If objVar1 Is Nothing Then
-      '///create a temp variable TODO: should reuse temp variable because LLVM can't optimize it
+      '///create a temp variable
       h = obj.Codegen(objContext, 0, 0, 0, 0)
       If objDestType.DataType = vbEmpty Then 'Any
        j = objContext.CurrentFunction.GetTempVariable(objContext, objSrcType, nTag)
@@ -494,4 +506,31 @@ Private Function IASTNode_Codegen(ByVal objContext As clsVerifyContext, ByVal nP
 IASTNode_Codegen = CodegenEx(objContext, False)
 End Function
 
+Friend Function TransferArrayBoundToReDimNode(ByVal objReDimNode As DimNode, ByVal objDefaultBase As IASTNode) As Boolean
+Dim i As Long, m As Long
+'///
+If m_nCount > 0 Then
+ If Not m_objArgList(m_nCount) Is Nothing Then
+  m = m_objArgList(m_nCount).ArgumentCount
+  If m > 0 Then
+   For i = 1 To m
+    If m_objArgList(m_nCount).ArgumentFlags(i) Then Exit Function
+    If m_objArgList(m_nCount).ArgumentNode(i) Is Nothing Then Exit Function
+   Next i
+   '///
+   m_objArgList(m_nCount).TransferArrayBoundToReDimNode objReDimNode, objDefaultBase
+   '///
+   Set m_objArgList(m_nCount) = Nothing
+   m_nCount = m_nCount - 1
+   If m_nCount > 0 Then
+    ReDim Preserve m_objArgList(1 To m_nCount)
+   Else
+    Erase m_objArgList
+   End If
+   '///
+   TransferArrayBoundToReDimNode = True
+  End If
+ End If
+End If
+End Function
 
