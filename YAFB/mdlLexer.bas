@@ -232,6 +232,14 @@ Case [">"]
   ret.nType = token_ne
  Case ["="]
   ret.nType = token_ge
+ Case [">"]
+  Select Case objFile.GetCh
+  Case [">"]
+   ret.nType = token_ror
+  Case Else
+   objFile.UnGetCh
+   ret.nType = token_shr
+  End Select
  Case Else
   objFile.UnGetCh
   ret.nType = token_gt
@@ -243,6 +251,14 @@ Case ["<"]
   ret.nType = token_ne
  Case ["="]
   ret.nType = token_le
+ Case ["<"]
+  Select Case objFile.GetCh
+  Case ["<"]
+   ret.nType = token_rol
+  Case Else
+   objFile.UnGetCh
+   ret.nType = token_shl
+  End Select
  Case Else
   objFile.UnGetCh
   ret.nType = token_lt
@@ -560,8 +576,8 @@ End Function
 
 Private Sub pInitKeyword()
 '### BEGIN INIT KEYWORD
-nKeywordCount = 72
-ReDim sKeywords(1 To 72)
+nKeywordCount = 76
+ReDim sKeywords(1 To 76)
 sKeywords(1) = "alias"
 sKeywords(2) = "and"
 sKeywords(3) = "as"
@@ -570,69 +586,73 @@ sKeywords(5) = "byref"
 sKeywords(6) = "byval"
 sKeywords(7) = "call"
 sKeywords(8) = "case"
-sKeywords(9) = "close"
-sKeywords(10) = "const"
-sKeywords(11) = "declare"
-sKeywords(12) = "dim"
-sKeywords(13) = "do"
-sKeywords(14) = "each"
-sKeywords(15) = "else"
-sKeywords(16) = "elseif"
-sKeywords(17) = "end"
-sKeywords(18) = "enum"
-sKeywords(19) = "eqv"
-sKeywords(20) = "exit"
-sKeywords(21) = "false"
-sKeywords(22) = "for"
-sKeywords(23) = "friend"
-sKeywords(24) = "function"
-sKeywords(25) = "get"
-sKeywords(26) = "global"
-sKeywords(27) = "goto"
-sKeywords(28) = "if"
-sKeywords(29) = "imp"
-sKeywords(30) = "in"
-sKeywords(31) = "input"
-sKeywords(32) = "is"
-sKeywords(33) = "let"
-sKeywords(34) = "lib"
-sKeywords(35) = "line"
-sKeywords(36) = "loop"
-sKeywords(37) = "lset"
-sKeywords(38) = "mod"
-sKeywords(39) = "new"
-sKeywords(40) = "next"
-sKeywords(41) = "not"
-sKeywords(42) = "on"
-sKeywords(43) = "open"
-sKeywords(44) = "option"
-sKeywords(45) = "optional"
-sKeywords(46) = "or"
-sKeywords(47) = "paramarray"
-sKeywords(48) = "preserve"
-sKeywords(49) = "print"
-sKeywords(50) = "private"
-sKeywords(51) = "property"
-sKeywords(52) = "public"
-sKeywords(53) = "put"
-sKeywords(54) = "raiseevent"
-sKeywords(55) = "redim"
-sKeywords(56) = "rset"
-sKeywords(57) = "select"
-sKeywords(58) = "set"
-sKeywords(59) = "static"
-sKeywords(60) = "step"
-sKeywords(61) = "sub"
-sKeywords(62) = "then"
-sKeywords(63) = "to"
-sKeywords(64) = "true"
-sKeywords(65) = "type"
-sKeywords(66) = "until"
-sKeywords(67) = "wend"
-sKeywords(68) = "while"
-sKeywords(69) = "with"
-sKeywords(70) = "withevents"
-sKeywords(71) = "write"
-sKeywords(72) = "xor"
+sKeywords(9) = "cdecl"
+sKeywords(10) = "close"
+sKeywords(11) = "const"
+sKeywords(12) = "declare"
+sKeywords(13) = "dim"
+sKeywords(14) = "do"
+sKeywords(15) = "each"
+sKeywords(16) = "else"
+sKeywords(17) = "elseif"
+sKeywords(18) = "end"
+sKeywords(19) = "enum"
+sKeywords(20) = "eqv"
+sKeywords(21) = "erase"
+sKeywords(22) = "exit"
+sKeywords(23) = "false"
+sKeywords(24) = "fastcall"
+sKeywords(25) = "for"
+sKeywords(26) = "friend"
+sKeywords(27) = "function"
+sKeywords(28) = "get"
+sKeywords(29) = "global"
+sKeywords(30) = "goto"
+sKeywords(31) = "if"
+sKeywords(32) = "imp"
+sKeywords(33) = "in"
+sKeywords(34) = "input"
+sKeywords(35) = "is"
+sKeywords(36) = "let"
+sKeywords(37) = "lib"
+sKeywords(38) = "line"
+sKeywords(39) = "loop"
+sKeywords(40) = "lset"
+sKeywords(41) = "mod"
+sKeywords(42) = "new"
+sKeywords(43) = "next"
+sKeywords(44) = "not"
+sKeywords(45) = "on"
+sKeywords(46) = "open"
+sKeywords(47) = "option"
+sKeywords(48) = "optional"
+sKeywords(49) = "or"
+sKeywords(50) = "paramarray"
+sKeywords(51) = "preserve"
+sKeywords(52) = "print"
+sKeywords(53) = "private"
+sKeywords(54) = "property"
+sKeywords(55) = "public"
+sKeywords(56) = "put"
+sKeywords(57) = "raiseevent"
+sKeywords(58) = "redim"
+sKeywords(59) = "rset"
+sKeywords(60) = "select"
+sKeywords(61) = "set"
+sKeywords(62) = "static"
+sKeywords(63) = "stdcall"
+sKeywords(64) = "step"
+sKeywords(65) = "sub"
+sKeywords(66) = "then"
+sKeywords(67) = "to"
+sKeywords(68) = "true"
+sKeywords(69) = "type"
+sKeywords(70) = "until"
+sKeywords(71) = "wend"
+sKeywords(72) = "while"
+sKeywords(73) = "with"
+sKeywords(74) = "withevents"
+sKeywords(75) = "write"
+sKeywords(76) = "xor"
  '### END INIT KEYWORD
 End Sub

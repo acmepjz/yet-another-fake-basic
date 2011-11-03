@@ -151,8 +151,8 @@ End If
 If nPhase = verify_all Then
  For i = 1 To m_nCount
   Set objType = m_objCondition(i).GetType(nFlags)
-  If (objType.Flags And &H20&) = 0 Then
-   PrintError "Data type '" + objType.Name + "' can't use for condition of 'If' statement", -1, -1
+  If (objType.Flags And &H20&) = 0 Or nFlags <> 0 Then
+   PrintError "Data type '" + objType.NameEx(nFlags) + "' can't use for condition of 'If' statement", -1, -1
    Exit Function
   End If
  Next i

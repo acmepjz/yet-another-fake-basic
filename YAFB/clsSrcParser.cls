@@ -278,6 +278,21 @@ Do
   Set obj = ParseConst(objFile, 0, objFunction)
   If obj Is Nothing Then Exit Function
   objList.AddSubNode obj
+ Case keyword_redim
+  If Not GetNextToken(objFile, g_tToken) Then Exit Function
+  If g_tToken.nType = keyword_preserve Then
+   If Not GetNextToken(objFile, g_tToken) Then Exit Function
+   Set obj = ParseReDim(objFile, 2)
+  Else
+   Set obj = ParseReDim(objFile, 1)
+  End If
+  If obj Is Nothing Then Exit Function
+  objList.AddSubNode obj
+ Case keyword_erase
+  If Not GetNextToken(objFile, g_tToken) Then Exit Function
+  Set obj = ParseErase(objFile)
+  If obj Is Nothing Then Exit Function
+  objList.AddSubNode obj
  Case keyword_end
   If nEndType = node_selectblock Then
    'don't eat current token
@@ -988,7 +1003,7 @@ Do
      If obj1 Is Nothing Then Exit Function
      objNode.AddDimension obj0, obj1
     Else
-     objNode.AddDimension Nothing, obj0
+     objNode.AddDimension m_objDefaultBase, obj0
     End If
     '///
     Select Case g_tToken.nType
@@ -1035,6 +1050,64 @@ Else
 End If
 '///
 Set ParseDim = obj
+End Function
+
+Friend Function ParseReDim(ByVal objFile As ISource, ByVal nFlags As Long) As IASTNode
+Dim obj As New DimListNode
+Dim objNode As New DimNode
+'///
+Dim objVariable As VariableNode
+Dim objDataType As DataTypeNode
+'///
+If nFlags <> 2 Then nFlags = 1
+'///
+Do
+ Set objNode = Nothing
+ objNode.DimType = nFlags
+ '///
+ Set objVariable = ParseVariable(objFile, objNode)
+ If objVariable Is Nothing Then Exit Function
+ Set objNode.VariableObject = objVariable
+ '///
+ If g_tToken.nType = keyword_as Then
+  If Not GetNextToken(objFile, g_tToken) Then Exit Function
+  Set objDataType = ParseDataType(objFile)
+  If objDataType Is Nothing Then Exit Function
+ Else
+  Set objDataType = Nothing
+ End If
+ Set objNode.DataType = objDataType
+ '///
+ obj.AddSubNode objNode
+ '///
+ If g_tToken.nType <> token_comma Then Exit Do
+ If Not GetNextToken(objFile, g_tToken) Then Exit Function
+Loop
+'///
+Set ParseReDim = obj
+End Function
+
+Friend Function ParseErase(ByVal objFile As ISource) As IASTNode
+Dim obj As New DimListNode
+Dim objNode As New DimNode
+'///
+Dim objVariable As VariableNode
+'///
+Do
+ Set objNode = Nothing
+ objNode.DimType = 3
+ '///
+ Set objVariable = ParseVariable(objFile)
+ If objVariable Is Nothing Then Exit Function
+ Set objNode.VariableObject = objVariable
+ '///
+ obj.AddSubNode objNode
+ '///
+ If g_tToken.nType <> token_comma Then Exit Do
+ If Not GetNextToken(objFile, g_tToken) Then Exit Function
+Loop
+'///
+Set ParseErase = obj
 End Function
 
 Friend Function ParseFunction(ByVal objFile As ISource, ByVal nFlags As Long) As IASTNode
@@ -1426,7 +1499,7 @@ End Select
 End Function
 
 '<var>:(<array_or_func>|<membervar>)<membervar>*
-Friend Function ParseVariable(ByVal objFile As ISource) As VariableNode
+Friend Function ParseVariable(ByVal objFile As ISource, Optional ByVal objReDimNode As DimNode) As VariableNode
 Dim obj As New VariableNode
 Dim obj1 As ArrayOrFuncNode
 Dim nFlags2 As Long
@@ -1438,9 +1511,13 @@ Case token_dot
 End Select
 '///
 Do
- Set obj1 = ParseArrayOrFuncNode(objFile, nFlags2)
+ Set obj1 = ParseArrayOrFuncNode(objFile, nFlags2, objReDimNode)
  If obj1 Is Nothing Then Exit Function
  obj.AddSubNode obj1
+ '///
+ If Not objReDimNode Is Nothing Then
+  If objReDimNode.DimensionCount > 0 Then Exit Do
+ End If
  '///
  If g_tToken.nType <> token_dot Then Exit Do
  If g_tToken.nFlags And 1& Then Exit Do 'dirty workaround of parsing "a.b" and "a .b"
@@ -1449,11 +1526,20 @@ Do
  If Not GetNextToken(objFile, g_tToken) Then Exit Function
 Loop
 '///
+If Not objReDimNode Is Nothing Then
+ If objReDimNode.DimensionCount = 0 Then
+  If Not obj.TransferArrayBoundToReDimNode(objReDimNode, m_objDefaultBase) Then
+   PrintError "'(' (ReDim array bound) expected"
+   Exit Function
+  End If
+ End If
+End If
+'///
 Set ParseVariable = obj
 End Function
 
 '<array_or_func>:<id>({(}<arglist>{)})+
-Friend Function ParseArrayOrFuncNode(ByVal objFile As ISource, ByVal nFlags2 As Long) As ArrayOrFuncNode
+Friend Function ParseArrayOrFuncNode(ByVal objFile As ISource, ByVal nFlags2 As Long, Optional ByVal objReDimNode As DimNode) As ArrayOrFuncNode
 Dim obj As New ArrayOrFuncNode
 Dim obj1 As ArgListNode
 '///
@@ -1471,44 +1557,82 @@ Do While g_tToken.nType = token_lbracket And (g_tToken.nFlags And 1&) = 0 'dirty
  If g_tToken.nType = token_rbracket Then
   obj.AddSubNode Nothing
  Else
-  Set obj1 = ParseArgListNode(objFile)
+  Set obj1 = ParseArgListNode(objFile, objReDimNode)
   If obj1 Is Nothing Then Exit Function
   If g_tToken.nType <> token_rbracket Then
    PrintError "')' expected"
    Exit Function
   End If
-  obj.AddSubNode obj1
+  If objReDimNode Is Nothing Then
+   obj.AddSubNode obj1
+  ElseIf objReDimNode.DimensionCount = 0 Then
+   obj.AddSubNode obj1
+  End If
  End If
  If Not GetNextToken(objFile, g_tToken) Then Exit Function
+ '///
+ If Not objReDimNode Is Nothing Then
+  If objReDimNode.DimensionCount > 0 Then Exit Do
+ End If
 Loop
 '///
 Set ParseArrayOrFuncNode = obj
 End Function
 
 '<arglist>:(({byval}?<exp>)?{,})*{byval}?<exp> 'ByVal???
-Friend Function ParseArgListNode(ByVal objFile As ISource) As ArgListNode
+Friend Function ParseArgListNode(ByVal objFile As ISource, Optional ByVal objReDimNode As DimNode) As ArgListNode
 Dim obj As New ArgListNode
-Dim obj1 As IASTNode
+Dim obj1 As IASTNode, obj2 As IASTNode
 Dim nFlags As Long
 '///
+Dim b As Boolean
+'///
 Do
- If g_tToken.nType = token_comma Then
+ If g_tToken.nType = token_comma Then 'omitted argument
+  If b Then
+   PrintError "Array bound can't be omitted"
+   Exit Function
+  End If
+  Set objReDimNode = Nothing
+  '///
   obj.AddSubNode Nothing, 0
   If Not GetNextToken(objFile, g_tToken) Then Exit Function
  Else
   nFlags = 0
   If g_tToken.nType = keyword_byval Then
+   If b Then
+    PrintError "Array bound can't be 'ByVal'"
+    Exit Function
+   End If
+   Set objReDimNode = Nothing
+   '///
    nFlags = nFlags Or 1&
    If Not GetNextToken(objFile, g_tToken) Then Exit Function
   End If
   Set obj1 = ParseExpression(objFile)
   If obj1 Is Nothing Then Exit Function
-  obj.AddSubNode obj1, nFlags
+  '///
+  If Not objReDimNode Is Nothing Then
+   If g_tToken.nType = keyword_to Then
+    b = True
+    If Not GetNextToken(objFile, g_tToken) Then Exit Function
+    Set obj2 = ParseExpression(objFile)
+    If obj2 Is Nothing Then Exit Function
+    '///
+    obj.TransferArrayBoundToReDimNode objReDimNode, m_objDefaultBase
+    objReDimNode.AddDimension obj1, obj2
+   ElseIf b Then
+    objReDimNode.AddDimension m_objDefaultBase, obj1
+   End If
+  End If
+  '///
+  If Not b Then obj.AddSubNode obj1, nFlags
   If g_tToken.nType <> token_comma Then Exit Do
   If Not GetNextToken(objFile, g_tToken) Then Exit Function
  End If
 Loop
 '///
+If b Then Set obj = New ArgListNode
 Set ParseArgListNode = obj
 End Function
 

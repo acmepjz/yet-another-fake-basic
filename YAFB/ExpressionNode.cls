@@ -40,13 +40,13 @@ Case action_const_codegen
    If hValue1 = 0 Then Exit Function
    '///
    Set objType1 = m_objSubNode(0).GetType(nFlags1)
-   Set m_objType = g_objTypeMgr.CheckUnaryOperator(objType1, m_nOperatorType)
+   Set m_objType = g_objTypeMgr.CheckUnaryOperator(objType1, nFlags1, m_nOperatorType)
    If m_objType Is Nothing Then
-    PrintError "Can't apply operator <TODO> on data type '" + objType1.Name + "'", -1, -1
+    PrintError "Can't apply operator '" + GetOperatorName(m_nOperatorType) + "' on data type '" + objType1.NameEx(nFlags1) + "'", -1, -1
     Exit Function
    End If
    '///
-   m_hConst = g_objTypeMgr.CodegenUnaryOperator(Nothing, hValue1, objType1, m_nOperatorType, m_objType, True)
+   m_hConst = g_objTypeMgr.CodegenUnaryOperator(Nothing, hValue1, objType1, nFlags1, m_nOperatorType, m_objType, True)
    If Not CheckConstant(m_hConst) Then Exit Function
   Case 2
    hValue1 = m_objSubNode(0).GetProperty(action_const_codegen)
@@ -56,13 +56,13 @@ Case action_const_codegen
    '///
    Set objType1 = m_objSubNode(0).GetType(nFlags1)
    Set objType2 = m_objSubNode(1).GetType(nFlags2)
-   Set m_objType = g_objTypeMgr.CheckBinaryOperator(objType1, objType2, m_nOperatorType)
+   Set m_objType = g_objTypeMgr.CheckBinaryOperator(objType1, nFlags1, objType2, nFlags2, m_nOperatorType)
    If m_objType Is Nothing Then
-    PrintError "Can't apply operator <TODO> on data type '" + objType1.Name + "' and '" + objType2.Name + "'", -1, -1
+    PrintError "Can't apply operator '" + GetOperatorName(m_nOperatorType) + "' on data type '" + objType1.NameEx(nFlags1) + "' and '" + objType2.NameEx(nFlags2) + "'", -1, -1
     Exit Function
    End If
    '///
-   m_hConst = g_objTypeMgr.CodegenBinaryOperator(Nothing, hValue1, objType1, hValue2, objType2, m_nOperatorType, m_objType, True)
+   m_hConst = g_objTypeMgr.CodegenBinaryOperator(Nothing, hValue1, objType1, nFlags1, hValue2, objType2, nFlags2, m_nOperatorType, m_objType, True)
    If Not CheckConstant(m_hConst) Then Exit Function
   End Select
  End If
@@ -109,17 +109,17 @@ Case verify_all
  Select Case m_nOperandCount
  Case 1
   Set objType1 = m_objSubNode(0).GetType(nFlags1)
-  Set m_objType = g_objTypeMgr.CheckUnaryOperator(objType1, m_nOperatorType)
+  Set m_objType = g_objTypeMgr.CheckUnaryOperator(objType1, nFlags1, m_nOperatorType)
   If m_objType Is Nothing Then
-   PrintError "Can't apply operator <TODO> on data type '" + objType1.Name + "'", -1, -1
+   PrintError "Can't apply operator '" + GetOperatorName(m_nOperatorType) + "' on data type '" + objType1.NameEx(nFlags1) + "'", -1, -1
    Exit Function
   End If
  Case 2
   Set objType1 = m_objSubNode(0).GetType(nFlags1)
   Set objType2 = m_objSubNode(1).GetType(nFlags2)
-  Set m_objType = g_objTypeMgr.CheckBinaryOperator(objType1, objType2, m_nOperatorType)
+  Set m_objType = g_objTypeMgr.CheckBinaryOperator(objType1, nFlags1, objType2, nFlags2, m_nOperatorType)
   If m_objType Is Nothing Then
-   PrintError "Can't apply operator <TODO> on data type '" + objType1.Name + "' and '" + objType2.Name + "'", -1, -1
+   PrintError "Can't apply operator '" + GetOperatorName(m_nOperatorType) + "' on data type '" + objType1.NameEx(nFlags1) + "' and '" + objType2.NameEx(nFlags2) + "'", -1, -1
    Exit Function
   End If
  End Select
@@ -138,13 +138,13 @@ Select Case m_nOperandCount
 Case 1
  hValue1 = m_objSubNode(0).Codegen(objContext, 0, 0, 0, 0)
  Set objType1 = m_objSubNode(0).GetType(nFlags1)
- IASTNode_Codegen = g_objTypeMgr.CodegenUnaryOperator(objContext, hValue1, objType1, m_nOperatorType, m_objType, False)
+ IASTNode_Codegen = g_objTypeMgr.CodegenUnaryOperator(objContext, hValue1, objType1, nFlags1, m_nOperatorType, m_objType, False)
 Case 2
  hValue1 = m_objSubNode(0).Codegen(objContext, 0, 0, 0, 0)
  hValue2 = m_objSubNode(1).Codegen(objContext, 0, 0, 0, 0)
  Set objType1 = m_objSubNode(0).GetType(nFlags1)
  Set objType2 = m_objSubNode(1).GetType(nFlags1)
- IASTNode_Codegen = g_objTypeMgr.CodegenBinaryOperator(objContext, hValue1, objType1, hValue2, objType2, m_nOperatorType, m_objType, False)
+ IASTNode_Codegen = g_objTypeMgr.CodegenBinaryOperator(objContext, hValue1, objType1, nFlags1, hValue2, objType2, nFlags2, m_nOperatorType, m_objType, False)
 End Select
 End Function
 

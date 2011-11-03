@@ -73,4 +73,10 @@ Next i
 IASTNode_Verify = True
 End Function
 
+Friend Sub TransferArrayBoundToReDimNode(ByVal objReDimNode As DimNode, ByVal objDefaultBase As IASTNode)
+Dim i As Long
+For i = 1 To m_nCount
+ objReDimNode.AddDimension objDefaultBase, m_objExpression(i)
+Next i
+End Sub
 

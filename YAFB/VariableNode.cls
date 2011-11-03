@@ -112,6 +112,14 @@ If m_nCount = 1 Then
 End If
 End Function
 
+'can be Nothing
+'TODO:
+Friend Function GetDimNode() As DimNode
+If m_nCount = 1 Then
+ Set GetDimNode = m_objSubNode(1).GetDimNode
+End If
+End Function
+
 'TODO:
 Friend Function CodegenEx(ByVal objContext As clsVerifyContext, Optional ByVal bIsLValue As Boolean, Optional ByVal bIsCall As Boolean) As Long
 CodegenEx = m_objSubNode(1).CodegenEx(objContext, bIsLValue, bIsCall)
@@ -125,3 +133,8 @@ Private Function IASTNode_Codegen(ByVal objContext As clsVerifyContext, ByVal nP
 IASTNode_Codegen = CodegenEx(objContext)
 End Function
 
+Friend Function TransferArrayBoundToReDimNode(ByVal objReDimNode As DimNode, ByVal objDefaultBase As IASTNode) As Boolean
+If m_nCount > 0 Then
+ TransferArrayBoundToReDimNode = m_objSubNode(m_nCount).TransferArrayBoundToReDimNode(objReDimNode, objDefaultBase)
+End If
+End Function

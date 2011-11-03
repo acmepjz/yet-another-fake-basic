@@ -143,6 +143,13 @@ Friend Property Get Name() As String
 Name = m_t.sValue
 End Property
 
+Friend Function NameEx(ByVal nFlags As Long) As String
+Dim s As String
+s = m_t.sValue
+If nFlags And &H400& Then s = s + "()"
+NameEx = s
+End Function
+
 Friend Property Get Handle() As Long
 Handle = m_hType
 End Property
