@@ -237,8 +237,8 @@ PrintHelp "-O2", "Default optimization (default)"
 PrintHelp "-O3", "Aggressive optimization"
 PrintHelp "-Os", "Optimize for size"
 PrintHelp "-Gd", "Use 'cdecl' calling convention"
-PrintHelp "-Gr", "Use 'fastcall' calling convention"
-PrintHelp "-Gz", "Use 'stdcall' calling convention (default)"
+PrintHelp "-Gr", "Use 'x86_fastcall' calling convention"
+PrintHelp "-Gz", "Use 'x86_stdcall' calling convention (default)"
 PrintHelp "-e", "Enables run-time error checking and handling (TEST ONLY)"
 PrintHelp "-triple <string>", "Target triple to assemble for, see -version for available targets. Default value is 'i686-pc-mingw32'"
 PrintHelp "-features <string>", "Target features. Default value is 'i686,mmx,cmov,sse,sse2,sse3'. Type 'help' for avaliable features."
@@ -285,7 +285,7 @@ g_bAssemble = True
 g_bLink = True
 g_nOptimizeLevel = LLVMCodeGenOpt_Default
 g_nDefaultCC = LLVMX86StdcallCallConv
-g_nWordSize = 4
+g_nWordSize = 0
 '///
 If App.LogMode <> 1 Then
  'test only
@@ -404,6 +404,33 @@ If g_objFiles.Count = 0 Then
  Puts "Type '" + Argv(0) + " -help' for available options." + vbCrLf
  Exit Sub
 End If
+'///get triple and features
+If g_sTriple = vbNullString Then
+ g_sTriple = "i686-pc-mingw32"
+ If g_sFeatures = vbNullString Then
+  g_sFeatures = "i686,mmx,cmov,sse,sse2,sse3"
+ End If
+Else
+ g_sFeatures = g_sFeatures + vbNullChar
+End If
+'///get default word size
+v = Split(g_sTriple, "-")
+i = UBound(v)
+j = 4
+If i >= 0 Then
+ s = v(0)
+ '///
+ If Right(s, 2) = "64" Then j = 8
+ '///
+' If i >= 2 Then
+'  s = LCase(v(2))
+'  Select Case s
+'  Case "win", "win32", "win64", "mingw", "mingw32", "mingw64", "cygwin", "cygwin32", "cygwin64"
+'  Case Else
+'  End Select
+' End If
+End If
+If g_nWordSize = 0 Then g_nWordSize = j
 '///
 Set g_objGlobalTable = New clsSymbolTable
 '///
@@ -480,15 +507,6 @@ Else
 End If
 LLVMInitializeAllAsmPrinters
 LLVMInitializeAllAsmParsers
-'///get triple and features
-If g_sTriple = vbNullString Then
- g_sTriple = "i686-pc-mingw32"
- If g_sFeatures = vbNullString Then
-  g_sFeatures = "i686,mmx,cmov,sse,sse2,sse3"
- End If
-Else
- g_sFeatures = g_sFeatures + vbNullChar
-End If
 '///create target machine
 g_hTargetMachine = LLVMCreateTargetMachine(g_sTriple, g_sFeatures)
 If g_hTargetMachine = 0 Then

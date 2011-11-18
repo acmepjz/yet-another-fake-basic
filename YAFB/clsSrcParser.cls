@@ -1370,7 +1370,7 @@ If LHS Is Nothing Then
 End If
 '// If this is a binop, find its precedence.
 Do
- TokPrec = GetBinaryTokPrecedence
+ TokPrec = GetBinaryTokPrecedence(g_tToken.nType)
  '// If this is a binop that binds at least as tightly as the current binop,
  '// consume it, otherwise we are done.
  If TokPrec < ExprPrec Then
@@ -1385,7 +1385,7 @@ Do
  If RHS Is Nothing Then Exit Function
  '// If BinOp binds less tightly with RHS than the operator after RHS, let
  '// the pending operator take RHS as its LHS.
- NextPrec = GetBinaryTokPrecedence
+ NextPrec = GetBinaryTokPrecedence(g_tToken.nType)
  If TokPrec < NextPrec Then
   Set RHS = ParseExpression(objFile, TokPrec + 1, RHS)
   If RHS Is Nothing Then Exit Function
@@ -1401,7 +1401,7 @@ End Function
 Friend Function ParseUnaryOp(ByVal objFile As ISource) As IASTNode
 Dim i As Long, TokPrec As Long
 Dim obj As IASTNode
-TokPrec = GetUnaryTokPrecedence
+TokPrec = GetUnaryTokPrecedence(g_tToken.nType)
 If TokPrec > 0 Then
  '// If this is a unary operator, read it.
  i = g_tToken.nType
@@ -1416,46 +1416,6 @@ Else
  '// If the current token is not an operator, it must be a primary expr.
  Set ParseUnaryOp = ParseExpressionTerm(objFile)
 End If
-End Function
-
-Friend Function GetBinaryTokPrecedence() As Long
-Select Case g_tToken.nType
-Case keyword_imp '??
- GetBinaryTokPrecedence = 7
-Case keyword_xor, keyword_eqv '??
- GetBinaryTokPrecedence = 10
-Case keyword_or
- GetBinaryTokPrecedence = 20
-Case keyword_and
- GetBinaryTokPrecedence = 30
-Case token_gt, token_lt, token_ge, token_le, token_equal, token_ne, keyword_is
- GetBinaryTokPrecedence = 40
-Case token_and
- GetBinaryTokPrecedence = 50
-Case token_plus, token_minus
- GetBinaryTokPrecedence = 60
-Case keyword_mod
- GetBinaryTokPrecedence = 70
-Case token_backslash
- GetBinaryTokPrecedence = 80
-Case token_asterisk, token_slash
- GetBinaryTokPrecedence = 90
-Case token_power
- GetBinaryTokPrecedence = 100
-Case Else
- GetBinaryTokPrecedence = -1
-End Select
-End Function
-
-Friend Function GetUnaryTokPrecedence() As Long
-Select Case g_tToken.nType
-Case keyword_not
- GetUnaryTokPrecedence = 35
-Case token_plus, token_minus
- GetUnaryTokPrecedence = 95
-Case Else
- GetUnaryTokPrecedence = -1
-End Select
 End Function
 
 Friend Function ParseExpressionTerm(ByVal objFile As ISource) As IASTNode

@@ -270,6 +270,20 @@ Case keyword_xor, keyword_or, keyword_and, keyword_eqv, keyword_imp
    End If
   End If
  End If
+Case token_shl, token_shr, token_rol, token_ror
+ If CheckTypeConversion(objType2, nFlags2, g_objIntrinsicDataTypes(vbSignedByte), 0) = 0 Then Exit Function
+ '///
+ If nType1 = vbBoolean Then
+  Set CheckBinaryOperator = g_objIntrinsicDataTypes(vbInteger)
+ Else
+  Select Case nFlagsTmp1 And &HF&
+  Case 1, 2
+   Set CheckBinaryOperator = objType1
+  Case 3
+   PrintWarning "Shift operator '" + GetOperatorName(nOperator) + "' on data type '" + objType1.Name + "', implicit converted it to 'Long'", -1, -1
+   Set CheckBinaryOperator = g_objIntrinsicDataTypes(vbLong)
+  End Select
+ End If
 Case token_gt, token_lt, token_ge, token_le, token_equal, token_ne
  Set CheckBinaryOperator = g_objIntrinsicDataTypes(vbBoolean)
 Case keyword_is
@@ -527,6 +541,62 @@ Case token_gt, token_lt, token_ge, token_le, token_equal, token_ne
  Else
   CodegenBinaryOperator = LLVMBuildSExt(g_hBuilder, hValue1, objDestType.Handle, StrPtr(StrConv("CmpTemp", vbFromUnicode)))
  End If
+Case token_shl, token_shr, token_rol, token_ror
+ hValue1 = CodegenTypeConversion(objContext, hValue1, objType1, 0, objDestType, 0, bIsConstant)
+ 'hValue2 = CodegenTypeConversion(objContext, hValue2, objType2, 0, g_objIntrinsicDataTypes(vbSignedByte), 0, bIsConstant)
+ hValue2 = CodegenTypeConversion(objContext, hValue2, objType2, 0, objDestType, 0, bIsConstant)
+ Select Case nOperator
+ Case token_shl
+  If bIsConstant Then
+   CodegenBinaryOperator = LLVMConstShl(hValue1, hValue2)
+  Else
+   CodegenBinaryOperator = LLVMBuildShl(g_hBuilder, hValue1, hValue2, StrPtr(StrConv("ShlTemp", vbFromUnicode)))
+  End If
+ Case token_shr
+  If (objDestType.Flags And &HF&) = 2 Then 'unsigned
+   If bIsConstant Then
+    CodegenBinaryOperator = LLVMConstLShr(hValue1, hValue2)
+   Else
+    CodegenBinaryOperator = LLVMBuildLShr(g_hBuilder, hValue1, hValue2, StrPtr(StrConv("ShrTemp", vbFromUnicode)))
+   End If
+  Else
+   If bIsConstant Then
+    CodegenBinaryOperator = LLVMConstAShr(hValue1, hValue2)
+   Else
+    CodegenBinaryOperator = LLVMBuildAShr(g_hBuilder, hValue1, hValue2, StrPtr(StrConv("SarTemp", vbFromUnicode)))
+   End If
+  End If
+ Case token_rol
+  i = LLVMConstInt(objDestType.Handle, objDestType.Size * 0.0008@ - 0.0001@, 0)
+  If bIsConstant Then
+   CodegenBinaryOperator = LLVMConstOr(LLVMConstShl(hValue1, LLVMConstAnd(hValue2, i)), _
+   LLVMConstLShr(hValue1, LLVMConstAnd(LLVMConstNeg(hValue2), i)))
+  Else
+   CodegenBinaryOperator = LLVMBuildOr(g_hBuilder, _
+   LLVMBuildShl(g_hBuilder, hValue1, _
+   LLVMBuildAnd(g_hBuilder, hValue2, i, StrPtr(StrConv("AndTemp", vbFromUnicode))), _
+   StrPtr(StrConv("ShlTemp", vbFromUnicode))), _
+   LLVMBuildLShr(g_hBuilder, hValue1, _
+   LLVMBuildAnd(g_hBuilder, LLVMBuildNeg(g_hBuilder, hValue2, StrPtr(StrConv("NegTemp", vbFromUnicode))), i, StrPtr(StrConv("AndTemp", vbFromUnicode))), _
+   StrPtr(StrConv("ShrTemp", vbFromUnicode))), _
+   StrPtr(StrConv("RolTemp", vbFromUnicode)))
+  End If
+ Case token_ror
+  i = LLVMConstInt(objDestType.Handle, objDestType.Size * 0.0008@ - 0.0001@, 0)
+  If bIsConstant Then
+   CodegenBinaryOperator = LLVMConstOr(LLVMConstLShr(hValue1, LLVMConstAnd(hValue2, i)), _
+   LLVMConstShl(hValue1, LLVMConstAnd(LLVMConstNeg(hValue2), i)))
+  Else
+   CodegenBinaryOperator = LLVMBuildOr(g_hBuilder, _
+   LLVMBuildLShr(g_hBuilder, hValue1, _
+   LLVMBuildAnd(g_hBuilder, hValue2, i, StrPtr(StrConv("AndTemp", vbFromUnicode))), _
+   StrPtr(StrConv("ShrTemp", vbFromUnicode))), _
+   LLVMBuildShl(g_hBuilder, hValue1, _
+   LLVMBuildAnd(g_hBuilder, LLVMBuildNeg(g_hBuilder, hValue2, StrPtr(StrConv("NegTemp", vbFromUnicode))), i, StrPtr(StrConv("AndTemp", vbFromUnicode))), _
+   StrPtr(StrConv("ShlTemp", vbFromUnicode))), _
+   StrPtr(StrConv("RorTemp", vbFromUnicode)))
+  End If
+ End Select
 Case keyword_is
  'TODO:
 Case Else
