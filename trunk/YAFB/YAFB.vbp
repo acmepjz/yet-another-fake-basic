@@ -37,6 +37,7 @@ Class=SelectBlockNode; SelectBlockNode.cls
 Class=LineNumberStatement; LineNumberStatement.cls
 Class=GoToStatement; GoToStatement.cls
 Class=clsDAG; clsDAG.cls
+Module=mdlPreprocessor; mdlPreprocessor.bas
 Startup="Sub Main"
 HelpFile=""
 Title="YAFB"

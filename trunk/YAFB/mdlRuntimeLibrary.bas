@@ -308,8 +308,8 @@ If hFunction = 0 Then
   hType(0) = LLVMDoubleType
   hType(1) = hType(0)
   hFunctionType = LLVMFunctionType(hType(0), hType(0), 2, 0)
-  'hFunction = LLVMAddFunction(g_hModule, StrPtr(StrConv("pow", vbFromUnicode)), hFunctionType)
-  hFunction = LLVMAddFunction(g_hModule, StrPtr(StrConv("llvm.pow.f64", vbFromUnicode)), hFunctionType)
+  hFunction = LLVMAddFunction(g_hModule, StrPtr(StrConv("pow", vbFromUnicode)), hFunctionType)
+  'hFunction = LLVMAddFunction(g_hModule, StrPtr(StrConv("llvm.pow.f64", vbFromUnicode)), hFunctionType) 'unknown bug: unoptimized
   LLVMAddFunctionAttr hFunction, LLVMNoUnwindAttribute
   LLVMSetLinkage hFunction, LLVMExternalLinkage
  Case internal_memcpy

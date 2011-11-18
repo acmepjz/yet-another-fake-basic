@@ -656,3 +656,45 @@ sKeywords(75) = "write"
 sKeywords(76) = "xor"
  '### END INIT KEYWORD
 End Sub
+
+Public Function GetBinaryTokPrecedence(ByVal nType As enumTokenType) As Long
+Select Case nType
+Case keyword_imp '??
+ GetBinaryTokPrecedence = 7
+Case keyword_xor, keyword_eqv '??
+ GetBinaryTokPrecedence = 10
+Case keyword_or
+ GetBinaryTokPrecedence = 20
+Case keyword_and
+ GetBinaryTokPrecedence = 30
+Case token_gt, token_lt, token_ge, token_le, token_equal, token_ne, keyword_is
+ GetBinaryTokPrecedence = 40
+Case token_shl, token_shr, token_rol, token_ror
+ GetBinaryTokPrecedence = 47
+Case token_and
+ GetBinaryTokPrecedence = 50
+Case token_plus, token_minus
+ GetBinaryTokPrecedence = 60
+Case keyword_mod
+ GetBinaryTokPrecedence = 70
+Case token_backslash
+ GetBinaryTokPrecedence = 80
+Case token_asterisk, token_slash
+ GetBinaryTokPrecedence = 90
+Case token_power
+ GetBinaryTokPrecedence = 100
+Case Else
+ GetBinaryTokPrecedence = -1
+End Select
+End Function
+
+Public Function GetUnaryTokPrecedence(ByVal nType As enumTokenType) As Long
+Select Case nType
+Case keyword_not
+ GetUnaryTokPrecedence = 35
+Case token_plus, token_minus
+ GetUnaryTokPrecedence = 95
+Case Else
+ GetUnaryTokPrecedence = -1
+End Select
+End Function
