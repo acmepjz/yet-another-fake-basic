@@ -27,8 +27,10 @@ Private Type typePreprocessorStack
  nType As enumASTNodeType
  'possible values:
  'node_ifstat
+ 'node_elseifblock (always skip condition check)
+ 'node_elseblock
  '///
- bEnabled As Boolean '?
+ 'bEnabled As Boolean '?
  bParentEnabled As Boolean '?
 End Type
 
@@ -98,12 +100,46 @@ End Sub
 Public Function GetNextToken(ByVal objFile As ISource, ByRef t As typeToken) As Boolean
 Dim bSkip As Boolean
 Dim i As Long
+Dim nType As enumASTNodeType
 Dim s As String, f As Double
 '///
 Do
  If Not GetNextToken_Internal(objFile, t) Then Exit Function
  '///
  Select Case t.nType
+ Case preprocessor_error
+  s = vbNullString
+  Do
+   i = objFile.GetCh
+   Select Case i
+   Case [" "], ["\t"]
+    s = s + ChrW(i)
+    If objFile.GetCh = ["_"] Then
+     Select Case objFile.GetCh
+     Case ["\r"]
+      If objFile.GetCh <> ["\n"] Then objFile.UnGetCh
+     Case ["\n"]
+      If objFile.GetCh <> ["\r"] Then objFile.UnGetCh
+     Case Else
+      objFile.UnGetCh 2
+     End Select
+    Else
+     objFile.UnGetCh
+    End If
+   Case -1, ["\r"], ["\n"]
+    objFile.UnGetCh
+    Exit Do
+   Case Else
+    s = s + ChrW(i)
+   End Select
+  Loop
+  '///
+  If Not bSkip Then
+   PrintError Trim(s), t.nLine, t.nColumn
+   Exit Function
+  End If
+  '///
+  If Not GetNextToken_Internal(objFile, t) Then Exit Function
  Case preprocessor_const
   If bSkip Then
    If Not PreprocessorParseSkip(objFile, t) Then Exit Function
@@ -140,11 +176,91 @@ Do
    SetPreprocessorConst g_tLocalPreprocessorConst, s, f
   End If
  Case preprocessor_if
-  'TODO:
+  If bSkip Then
+   If Not PreprocessorParseSkip(objFile, t) Then Exit Function
+   '///
+   m_nStackPointer = m_nStackPointer + 1
+   If m_nStackPointer > m_nStackMax Then
+    m_nStackMax = m_nStackMax + 32&
+    ReDim Preserve m_tStack(1 To m_nStackMax)
+   End If
+   m_tStack(m_nStackPointer).nType = node_elseifblock
+   m_tStack(m_nStackPointer).bParentEnabled = False
+  Else
+   If Not GetNextToken_Internal(objFile, t) Then Exit Function
+   If Not PreprocessorParseExpression(objFile, t, f) Then Exit Function
+   bSkip = f = 0#
+   If t.nType <> keyword_then Then
+    PrintError "'Then' expected", t.nLine, t.nColumn
+    Exit Function
+   End If
+   '///
+   If Not GetNextToken_Internal(objFile, t) Then Exit Function
+   Select Case t.nType
+   Case token_eof, token_crlf, token_colon
+   Case Else
+    PrintError "end of line expected", t.nLine, t.nColumn
+    Exit Function
+   End Select
+   '///
+   m_nStackPointer = m_nStackPointer + 1
+   If m_nStackPointer > m_nStackMax Then
+    m_nStackMax = m_nStackMax + 32&
+    ReDim Preserve m_tStack(1 To m_nStackMax)
+   End If
+   '///
+   If bSkip Then nType = node_ifstat Else nType = node_elseifblock
+   m_tStack(m_nStackPointer).nType = nType
+   m_tStack(m_nStackPointer).bParentEnabled = True
+  End If
  Case preprocessor_elseif
-  'TODO:
+  nType = 0
+  If m_nStackPointer > 0 Then nType = m_tStack(m_nStackPointer).nType
+  Select Case nType
+  Case node_ifstat
+   If Not GetNextToken_Internal(objFile, t) Then Exit Function
+   If Not PreprocessorParseExpression(objFile, t, f) Then Exit Function
+   bSkip = f = 0#
+   If t.nType <> keyword_then Then
+    PrintError "'Then' expected", t.nLine, t.nColumn
+    Exit Function
+   End If
+   '///
+   If Not GetNextToken_Internal(objFile, t) Then Exit Function
+   Select Case t.nType
+   Case token_eof, token_crlf, token_colon
+   Case Else
+    PrintError "end of line expected", t.nLine, t.nColumn
+    Exit Function
+   End Select
+   '///
+   If bSkip Then nType = node_ifstat Else nType = node_elseifblock
+   m_tStack(m_nStackPointer).nType = nType
+  Case node_elseifblock
+   If Not PreprocessorParseSkip(objFile, t) Then Exit Function
+  Case Else
+   PrintError "'#ElseIf' without '#If'", t.nLine, t.nColumn
+   Exit Function
+  End Select
  Case preprocessor_else
-  'TODO:
+  nType = 0
+  If m_nStackPointer > 0 Then nType = m_tStack(m_nStackPointer).nType
+  Select Case nType
+  Case node_ifstat, node_elseifblock
+   If Not GetNextToken_Internal(objFile, t) Then Exit Function
+   Select Case t.nType
+   Case token_eof, token_crlf, token_colon
+   Case Else
+    PrintError "end of line expected", t.nLine, t.nColumn
+    Exit Function
+   End Select
+   '///
+   bSkip = nType = node_elseifblock
+   m_tStack(m_nStackPointer).nType = node_elseblock
+  Case Else
+   PrintError "'#Else' without '#If'", t.nLine, t.nColumn
+   Exit Function
+  End Select
  Case preprocessor_end
   If Not GetNextToken_Internal(objFile, t) Then Exit Function
   If t.nType <> keyword_if Then
@@ -152,7 +268,16 @@ Do
    Exit Function
   End If
   '///pop stack
-  'TODO:
+  nType = 0
+  If m_nStackPointer > 0 Then nType = m_tStack(m_nStackPointer).nType
+  Select Case nType
+  Case node_ifstat, node_elseifblock, node_elseblock
+   bSkip = Not m_tStack(m_nStackPointer).bParentEnabled
+   m_nStackPointer = m_nStackPointer - 1
+  Case Else
+   PrintError "'#End If' without '#If'", t.nLine, t.nColumn
+   Exit Function
+  End Select
   '///
   If Not GetNextToken_Internal(objFile, t) Then Exit Function
   Select Case t.nType
@@ -176,7 +301,16 @@ m_nStackMax = 32
 End Sub
 
 Public Function FinalizePreprocessor() As Boolean
-'TODO:
+If m_nStackPointer > 0 Then
+ Select Case m_tStack(m_nStackPointer).nType
+ Case node_ifstat, node_elseifblock, node_elseblock
+  PrintError "'#If' without '#End If'"
+ Case Else
+  PrintError "'#???' without '#End ???'"
+ End Select
+ Exit Function
+End If
+'///
 FinalizePreprocessor = True
 End Function
 
