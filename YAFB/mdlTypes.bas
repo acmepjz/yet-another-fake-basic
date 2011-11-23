@@ -143,6 +143,12 @@ Public Enum enumTokenType
  token_ror = 34 '>>>
  '///in frm and ctl
  token_guid = 101
+ '///preprocessors
+ preprocessor_const = 901
+ preprocessor_else = 902
+ preprocessor_elseif = 903
+ preprocessor_end = 904
+ preprocessor_if = 905
  '### BEGIN KEYWORD ENUM
  keyword_alias = 1001
  keyword_and = 1002

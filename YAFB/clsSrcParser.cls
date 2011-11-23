@@ -76,6 +76,7 @@ Dim nFlags As Long
 Dim obj As IASTNode
 '///
 Set m_objNodes = New Collection
+InitializePreprocessor
 '///default: Option Base 0
 With New ConstNode
  .CreateIndirect g_objIntrinsicDataTypes(vbLong), LLVMConstInt(LLVMInt32Type, 0@, 1)
@@ -228,6 +229,7 @@ Do
  If Not ParseEndOfLine(objFile) Then Exit Function
 Loop
 '///
+If Not FinalizePreprocessor Then Exit Function
 ParseFile = g_tToken.nType < 0
 End Function
 

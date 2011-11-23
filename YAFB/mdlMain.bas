@@ -231,6 +231,7 @@ PrintHelp "-S", "Only run compilation steps"
 PrintHelp "-c", "Only run compile and assemble steps"
 PrintHelp "-emit-llvm", "Use the LLVM representation for assembler and object files"
 PrintHelp "-o <file>", "Write output to <file>"
+PrintHelp "-D<name>[=<value>]", "Define preprocessing constant"
 PrintHelp "-O0", "No optimization"
 PrintHelp "-O1", "Less optimization"
 PrintHelp "-O2", "Default optimization (default)"
@@ -277,7 +278,7 @@ End Sub
 
 Public Sub Main()
 Dim i As Long, j As Long
-Dim s As String
+Dim s As String, f As Double
 Dim v As Variant
 Dim objFile As ISource
 '///
@@ -377,9 +378,26 @@ For i = 1 To Argc - 1
     Exit Sub
    End If
   Case Else
-   Puts "Error: Unknown options '" + s + "'" + vbCrLf
-   Puts "Type '" + Argv(0) + " -help' for available options." + vbCrLf
-   Exit Sub
+   If Left(s, 2) = "-D" Then
+    s = Trim(Mid(s, 3))
+    j = InStr(1, s, "=")
+    If j > 0 Then
+     f = Val(Mid(s, j + 1))
+     s = Trim(Left(s, j - 1))
+    Else
+     f = -1
+    End If
+    If s = vbNullString Then
+     Puts "Error: Missing constant name: '" + Argv(i) + "'" + vbCrLf
+     Exit Sub
+    Else
+     SetPreprocessorConst g_tGlobalPreprocessorConst, s, f
+    End If
+   Else
+    Puts "Error: Unknown options '" + s + "'" + vbCrLf
+    Puts "Type '" + Argv(0) + " -help' for available options." + vbCrLf
+    Exit Sub
+   End If
   End Select
  Case "-w32"
   g_nWordSize = 4
@@ -421,16 +439,20 @@ If i >= 0 Then
  s = v(0)
  '///
  If Right(s, 2) = "64" Then j = 8
- '///
-' If i >= 2 Then
-'  s = LCase(v(2))
-'  Select Case s
-'  Case "win", "win32", "win64", "mingw", "mingw32", "mingw64", "cygwin", "cygwin32", "cygwin64"
-'  Case Else
-'  End Select
-' End If
 End If
 If g_nWordSize = 0 Then g_nWordSize = j
+'/// #define
+If i >= 2 Then
+ s = LCase(v(2))
+ Select Case s
+ Case "win", "win32", "win64", "mingw", "mingw32", "mingw64", "cygwin", "cygwin32", "cygwin64"
+  SetPreprocessorConst g_tGlobalPreprocessorConst, "Win32", -1
+  If g_nWordSize = 8 Then SetPreprocessorConst g_tGlobalPreprocessorConst, "Win64", -1
+ Case Else
+  'TODO:
+  SetPreprocessorConst g_tGlobalPreprocessorConst, "Unix", -1
+ End Select
+End If
 '///
 Set g_objGlobalTable = New clsSymbolTable
 '///
