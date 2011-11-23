@@ -3,62 +3,11 @@ Option Explicit
 
 Public sKeywords() As String, nKeywordCount As Long
 
-'Private Function pAddStringContent(ByRef t As typeSourceFile, ByRef s As String) As Long
-'With t.tContents
-' .nValueCount = .nValueCount + 1
-' If .nValueCount > .nValueMax Then
-'  .nValueMax = .nValueMax + .nValueMax \ 2& + 256&
-'  ReDim Preserve .sValues(1 To .nValueMax)
-' End If
-' .sValues(.nValueCount) = s
-' pAddStringContent = .nValueCount
-'End With
-'End Function
-'
-'Private Function pAddToken(ByRef t As typeSourceFile, ByVal nType As enumTokenType, Optional ByVal nValueIndex As Long = 0) As Long
-'With t.tContents
-' .nTokenCount = .nTokenCount + 1
-' If .nTokenCount > .nTokenMax Then
-'  .nTokenMax = .nTokenMax + .nTokenMax \ 2& + 1024&
-'  ReDim Preserve .tTokens(1 To .nTokenMax)
-' End If
-' With .tTokens(.nTokenCount)
-'  .nType = nType
-'  .nValueIndex = nValueIndex
-' End With
-' pAddToken = .nTokenCount
-'End With
-'End Function
-'
-'Private Function pAddTokenWithString(ByRef t As typeSourceFile, ByVal nType As enumTokenType, ByRef s As String) As Long
-'Dim i As Long
-'With t.tContents
-' i = .nValueCount + 1
-' .nValueCount = i
-' If i > .nValueMax Then
-'  .nValueMax = .nValueMax + .nValueMax \ 2& + 256&
-'  ReDim Preserve .sValues(1 To .nValueMax)
-' End If
-' .sValues(i) = s
-' '///
-' .nTokenCount = .nTokenCount + 1
-' If .nTokenCount > .nTokenMax Then
-'  .nTokenMax = .nTokenMax + .nTokenMax \ 2& + 1024&
-'  ReDim Preserve .tTokens(1 To .nTokenMax)
-' End If
-' With .tTokens(.nTokenCount)
-'  .nType = nType
-'  .nValueIndex = i
-' End With
-' pAddTokenWithString = .nTokenCount
-'End With
-'End Function
-
 '////////
-'TODO:preprocessor
+'without preprocessor
 'TODO:frx process
 
-Public Function GetNextToken(ByVal objFile As ISource, ByRef ret As typeToken) As Boolean
+Public Function GetNextToken_Internal(ByVal objFile As ISource, ByRef ret As typeToken) As Boolean
 Dim m As Long
 Dim s1 As String, s2 As String
 Dim c As Long
@@ -73,7 +22,7 @@ If nKeywordCount = 0 Then pInitKeyword
 ret.nFlags = 0
 ret.nFlags2 = 0
 ret.sValue = vbNullString
-GetNextToken = True
+GetNextToken_Internal = True
 '///
 CanBeLineNumber = objFile.Column = 1
 '///
@@ -515,27 +464,58 @@ Case Else
 End Select
 '////////////////////////////////////////
 label_poundsign:
-i = 0
-s1 = vbNullString
-Do While i < 30
- i = i + 1
- c = objFile.GetCh
- Select Case c
- Case ["#"]
-  If i < 4 Then Exit Do
-  ret.nType = token_datenum
-  ret.nLine = objFile.Line
-  ret.nColumn = objFile.Column
-  ret.sValue = s1
-  Exit Function
- Case ["0"] To ["9"], [" "], ["\t"], ["/"], ["-"], [":"], ["a"] To ["z"], ["aa"] To ["zz"]
-  s1 = s1 + ChrW(c)
+If CanBeLineNumber Then
+ '///must be preprocessor instructions
+ Do
+  c = objFile.GetCh
+  Select Case c
+  Case ["a"] To ["z"], ["aa"] To ["zz"]
+   s1 = s1 + ChrW(c)
+  Case Else
+   objFile.UnGetCh
+   Exit Do
+  End Select
+ Loop
+ '///
+ Select Case LCase(s1)
+ Case "#const"
+  ret.nType = preprocessor_const
+ Case "#else"
+  ret.nType = preprocessor_else
+ Case "#elseif"
+  ret.nType = preprocessor_elseif
+ Case "#end"
+  ret.nType = preprocessor_end
+ Case "#if"
+  ret.nType = preprocessor_if
  Case Else
-  Exit Do
+  s1 = "'#Const' or '#Else' or '#ElseIf' or '#End' or '#If' expected"
+  GoTo label_error
  End Select
-Loop
-objFile.UnGetCh i
-ret.nType = token_poundsign
+ ret.sValue = s1
+Else
+ i = 0
+ s1 = vbNullString
+ Do While i < 30
+  i = i + 1
+  c = objFile.GetCh
+  Select Case c
+  Case ["#"]
+   If i < 4 Then Exit Do
+   ret.nType = token_datenum
+   ret.nLine = objFile.Line
+   ret.nColumn = objFile.Column
+   ret.sValue = s1
+   Exit Function
+  Case ["0"] To ["9"], [" "], ["\t"], ["/"], ["-"], [":"], ["a"] To ["z"], ["aa"] To ["zz"]
+   s1 = s1 + ChrW(c)
+  Case Else
+   Exit Do
+  End Select
+ Loop
+ objFile.UnGetCh i
+ ret.nType = token_poundsign
+End If
 GoTo label_over
 '////////////////////////////////////////
 label_over:
@@ -545,7 +525,7 @@ ret.nFlags = nFlags
 Exit Function
 '////////////////////////////////////////
 label_error:
-GetNextToken = False
+GetNextToken_Internal = False
 '///
 ret.nType = token_err
 ret.nLine = objFile.Line
