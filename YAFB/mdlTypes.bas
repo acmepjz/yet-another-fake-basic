@@ -148,7 +148,8 @@ Public Enum enumTokenType
  preprocessor_else = 902
  preprocessor_elseif = 903
  preprocessor_end = 904
- preprocessor_if = 905
+ preprocessor_error = 905
+ preprocessor_if = 906
  '### BEGIN KEYWORD ENUM
  keyword_alias = 1001
  keyword_and = 1002

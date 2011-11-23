@@ -476,6 +476,32 @@ Do
    PrintError "Identifier or decimal number expected"
    Exit Function
   End Select
+ Case token_eof
+  Select Case nEndType
+  Case 0
+   PrintError "'Sub' without 'End Sub'"
+  Case 1
+   PrintError "'Function' without 'End Function'"
+  Case 2, 3, 4
+   PrintError "'Property' without 'End Property'"
+  Case node_ifstat
+   'exit silently (??)
+   Exit Do
+  Case node_ifblock, node_elseblock
+   PrintError "'If' without 'End If'"
+  Case node_forstat
+   PrintError "'For' without 'Next'"
+  Case node_dostat
+   PrintError "'Do' without 'Loop'"
+  Case node_whilestat
+   PrintError "'While' without 'Wend'"
+  Case node_selectblock
+   PrintError "'Select' without 'End Select'"
+  Case Else
+   'unknown type
+   PrintError "'???' without 'End ???'"
+  End Select
+  Exit Function
  Case Else
   PrintError "Syntax error or currently unsupported"
   Exit Function
@@ -544,7 +570,7 @@ If Not GetNextToken(objFile, g_tToken) Then Exit Function
 '///now check it's single-line statement or blocked statement
 Select Case g_tToken.nType
 Case token_eof
- PrintError "Unexpected end of file"
+ PrintError "'If' without 'End If'"
  Exit Function
 Case token_colon, token_crlf
  '///blocked statement
@@ -792,7 +818,7 @@ Do
  Case token_crlf, token_colon
   If Not GetNextToken(objFile, g_tToken) Then Exit Function
  Case token_eof
-  PrintError "Unexpected end of file"
+  PrintError "'Select' without 'End Select'"
   Exit Function
  Case Else
   Exit Do

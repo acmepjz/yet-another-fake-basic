@@ -274,7 +274,7 @@ Do
  c = objFile.GetCh
  Select Case c
  Case [" "], ["\t"]
-  s1 = s1 + ChrW(c)
+  's1 = s1 + ChrW(c)
   If objFile.GetCh = ["_"] Then
    Select Case objFile.GetCh
    Case ["\r"]
@@ -291,7 +291,7 @@ Do
   objFile.UnGetCh
   Exit Do
  Case Else
-  s1 = s1 + ChrW(c)
+  's1 = s1 + ChrW(c)
  End Select
 Loop
 nFlags = nFlags Or 1&
@@ -486,6 +486,8 @@ If CanBeLineNumber Then
   ret.nType = preprocessor_elseif
  Case "#end"
   ret.nType = preprocessor_end
+ Case "#error"
+  ret.nType = preprocessor_error
  Case "#if"
   ret.nType = preprocessor_if
  Case Else

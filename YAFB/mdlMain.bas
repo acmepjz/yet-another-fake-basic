@@ -377,6 +377,12 @@ For i = 1 To Argc - 1
     ShowTripleHelp
     Exit Sub
    End If
+  Case "-w32"
+   g_nWordSize = 4
+  Case "-w64"
+   g_nWordSize = 8
+  Case "-Werror"
+   g_bWarningAsError = True
   Case Else
    If Left(s, 2) = "-D" Then
     s = Trim(Mid(s, 3))
@@ -399,12 +405,6 @@ For i = 1 To Argc - 1
     Exit Sub
    End If
   End Select
- Case "-w32"
-  g_nWordSize = 4
- Case "-w64"
-  g_nWordSize = 8
- Case "-Werror"
-  g_bWarningAsError = True
  Case Else
   Select Case LCase(Right(s, 4))
   Case ".vbp"
@@ -441,6 +441,7 @@ If i >= 0 Then
  If Right(s, 2) = "64" Then j = 8
 End If
 If g_nWordSize = 0 Then g_nWordSize = j
+SetPreprocessorConst g_tGlobalPreprocessorConst, "WordSize", g_nWordSize
 '/// #define
 If i >= 2 Then
  s = LCase(v(2))
