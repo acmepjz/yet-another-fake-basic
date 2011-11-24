@@ -359,7 +359,7 @@ If Not m_objVariable Is Nothing Then
  Case 0 'dim
   If m_objVariable.DimType And &H400& Then 'array
    If m_objVariable.DimensionCount > 0 Then 'fixed-size array
-    h = LLVMConstInt(g_objIntrinsicDataTypes(vbIntPtr_t).Handle, 0@, 1)
+    h = LLVMConstInt(g_hTypeIntPtr_t, 0@, 1)
     For i = m_objVariable.DimensionCount To 1 Step -1
      Set obj = m_objArgList(1).ArgumentNode(i)
      Set objSrcType = obj.GetType(nSrcFlags)
@@ -370,12 +370,12 @@ If Not m_objVariable Is Nothing Then
      StrPtr(StrConv("ArrayTemp", vbFromUnicode)))
      '///
      h = LLVMBuildSub(g_hBuilder, h, _
-     LLVMConstZExt(m_objVariable.ArrayBound(0, i).GetProperty(action_const_codegen), g_objIntrinsicDataTypes(vbIntPtr_t).Handle), _
+     LLVMConstZExt(m_objVariable.ArrayBound(0, i).GetProperty(action_const_codegen), g_hTypeIntPtr_t), _
      StrPtr(StrConv("ArrayTemp", vbFromUnicode)))
      '///
      If i > 1 Then
       h = LLVMBuildMul(g_hBuilder, h, _
-      LLVMConstInt(g_objIntrinsicDataTypes(vbIntPtr_t).Handle, m_objVariable.ArrayDimensionSize(i - 1), 0), _
+      LLVMConstInt(g_hTypeIntPtr_t, m_objVariable.ArrayDimensionSize(i - 1), 0), _
       StrPtr(StrConv("ArrayTemp", vbFromUnicode)))
      End If
     Next i
