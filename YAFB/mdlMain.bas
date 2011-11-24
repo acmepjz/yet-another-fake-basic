@@ -2,6 +2,7 @@ Attribute VB_Name = "mdlMain"
 Option Explicit
 
 #Const Test = False
+#Const InitLLVMFirst = True
 
 Private Declare Function AllocConsole Lib "kernel32.dll" () As Long
 Private Declare Function GetStdHandle Lib "kernel32.dll" (ByVal nStdHandle As Long) As Long
@@ -63,6 +64,8 @@ Public g_hModule As Long, g_hBuilder As Long
 
 Public g_hTargetMachine As Long
 Public g_hTargetData As Long
+
+Public g_bTargetDataLayout(2047) As Byte
 
 Public Sub PrintPanic(ByVal s As String, Optional ByVal nLine As Long, Optional ByVal nColumn As Long)
 If nLine = 0 Then
@@ -431,18 +434,53 @@ If g_sTriple = vbNullString Then
 Else
  g_sFeatures = g_sFeatures + vbNullChar
 End If
-'///get default word size
+'///================================ NEW ================================
+#If InitLLVMFirst Then
+If g_bInitAll Then
+ LLVMInitializeAllTargetInfos
+ LLVMInitializeAllTargets
+Else
+ LLVMInitializeX86TargetInfo
+ LLVMInitializeNativeTarget
+End If
+'///NEW: get default word size from target data layout
+g_hTargetMachine = LLVMCreateTargetMachine(g_sTriple, g_sFeatures)
+If g_hTargetMachine = 0 Then
+ PrintError "Can't create target machine for triple '" + g_sTriple + "'", -1, -1
+ PrintErrorCount
+ Exit Sub
+End If
+i = VarPtr(g_bTargetDataLayout(0))
+LLVMTargetMachineGetDataLayout g_hTargetMachine, ByVal i, 2048&
+g_hTargetData = LLVMCreateTargetData(i)
+'///
+s = StrConv(g_bTargetDataLayout, vbUnicode)
+s = Left(s, InStr(1, s, vbNullChar) - 1)
+If Left(s, 1) = "E" Then
+ SetPreprocessorConst g_tGlobalPreprocessorConst, "BigEndian", -1
+Else
+ SetPreprocessorConst g_tGlobalPreprocessorConst, "LittleEndian", -1
+End If
+j = 4
+i = InStr(1, s, "p:")
+If i > 0 Then j = Val(Mid(s, i + 2)) \ 8&
+'///================================ OLD ================================
+#End If
 v = Split(g_sTriple, "-")
 i = UBound(v)
+#If InitLLVMFirst Then
+#Else
+'///get default word size
 j = 4
 If i >= 0 Then
  s = v(0)
  '///
  If Right(s, 2) = "64" Then j = 8
 End If
+#End If
 If g_nWordSize = 0 Then g_nWordSize = j
 SetPreprocessorConst g_tGlobalPreprocessorConst, "WordSize", g_nWordSize
-'/// #define
+'///get operating system
 If i >= 2 Then
  s = LCase(v(2))
  Select Case s
@@ -521,6 +559,8 @@ End If
 '///
 Puts "Generating code..." + vbCrLf
 '================================ LLVM ================================
+#If InitLLVMFirst Then
+#Else
 If g_bInitAll Then
  LLVMInitializeAllTargetInfos
  LLVMInitializeAllTargets
@@ -528,9 +568,12 @@ Else
  LLVMInitializeX86TargetInfo
  LLVMInitializeNativeTarget
 End If
+#End If
 LLVMInitializeAllAsmPrinters
 LLVMInitializeAllAsmParsers
 '///create target machine
+#If InitLLVMFirst Then
+#Else
 g_hTargetMachine = LLVMCreateTargetMachine(g_sTriple, g_sFeatures)
 If g_hTargetMachine = 0 Then
  PrintError "Can't create target machine for triple '" + g_sTriple + "'", -1, -1
@@ -538,16 +581,16 @@ If g_hTargetMachine = 0 Then
  Exit Sub
 End If
 '///get target data layout
-s = Space(1024&)
-i = StrPtr(s)
+i = VarPtr(g_bTargetDataLayout(0))
 LLVMTargetMachineGetDataLayout g_hTargetMachine, ByVal i, 2048&
 g_hTargetData = LLVMCreateTargetData(i)
+#End If
 '///create module
 g_hModule = LLVMModuleCreateWithName(StrPtr(StrConv("Module1", vbFromUnicode)))
 g_hBuilder = LLVMCreateBuilder
 '///set target and data layout
 'NOTE: we must have data layout in order to make sizeof() works
-LLVMSetDataLayout g_hModule, i
+LLVMSetDataLayout g_hModule, VarPtr(g_bTargetDataLayout(0))
 s = StrConv(g_sTriple, vbFromUnicode)
 i = StrPtr(s)
 LLVMSetTarget g_hModule, i
