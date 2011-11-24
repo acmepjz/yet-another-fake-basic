@@ -46,6 +46,8 @@ Private m_hOneValue As Long
 Private m_hFunctionScalarDestructor As Long
 Private m_hFunctionVectorDestructor As Long
 
+Private m_hFunctionSafeArrayDestructor As Long
+
 Friend Function CodegenConvertToI1(ByVal hValue As Long, ByVal lpName As String, Optional ByVal bIsConstant As Boolean, Optional ByVal hBuilder As Long) As Long
 'Dim hVariable As Long
 'Dim hConst As Long
@@ -171,7 +173,7 @@ If m <= 0.0008@ Then 'LLVM generates extremely stupid code :(
 Else 'so we should call 'memset' instead... (???)
  h(0) = LLVMBuildPointerCast(hBuilder, hVariable, LLVMPointerType(LLVMInt8Type, 0), ByVal StrPtr(StrConv("ByRefTemp", vbFromUnicode)))
  h(1) = LLVMConstNull(LLVMInt8Type)
- h(2) = LLVMBuildIntCast(hBuilder, LLVMSizeOf(m_hType), g_objIntrinsicDataTypes(vbIntPtr_t).Handle, ByVal StrPtr(StrConv("SizeTemp", vbFromUnicode)))
+ h(2) = LLVMBuildIntCast(hBuilder, LLVMSizeOf(m_hType), g_hTypeIntPtr_t, ByVal StrPtr(StrConv("SizeTemp", vbFromUnicode)))
  h(3) = LLVMConstNull(LLVMInt32Type) 'align=unknown
  h(4) = LLVMConstNull(LLVMInt1Type) 'isVolatile=False
  LLVMBuildCall hBuilder, RuntimeLibraryGetFunction(internal_llvm_memset), h(0), 5, StrPtr(vbNullChar)
@@ -214,6 +216,114 @@ End If
 GetDefaultScalarDestructorFunction = hFunction
 End Function
 
+Friend Function GetDefaultSafeArrayDestructorFunction() As Long
+'Private Type SAFEARRAY2D
+'    cDims As Integer
+'    fFeatures As Integer
+'    cbElements As Long
+'    cLocks As Long
+'    pvData As Long
+'    Bounds(0 To 1) As SAFEARRAYBOUND
+'End Type
+'Private Type SAFEARRAYBOUND
+'    cElements As Long
+'    lLbound As Long
+'End Type
+Dim hType(7) As Long
+Dim p0 As Long
+Dim hFunctionType As Long
+Dim hFunction As Long
+Dim hBuilder As Long
+Dim hBlock(7) As Long
+Dim hValue As Long
+Dim hValue_SafeArray As Long
+Dim hValue_Dimension As Long
+Dim hValue_Pointer As Long
+Dim hValue_SafeArrayBound As Long
+Dim hVariable_i As Long
+Dim hVariable_m As Long
+Dim tmp As Long, lp As Long
+'///
+hFunction = m_hFunctionSafeArrayDestructor
+If hFunction = 0 Then
+ lp = VarPtr(tmp)
+ hBuilder = LLVMCreateBuilder
+ '///
+ hType(0) = LLVMPointerType(LLVMPointerType(g_hTypeSafeArray, 0), 0)
+ hFunctionType = LLVMFunctionType(LLVMVoidType, hType(0), 1, 0)
+ hFunction = LLVMAddFunction(g_hModule, StrPtr(StrConv("YAFB.SafeArrayDestructor." + m_t.sValue + ".i" + CStr(g_nWordSize * 8&), vbFromUnicode)), hFunctionType)
+ p0 = LLVMGetParam(hFunction, 0)
+ LLVMSetValueName p0, StrPtr(StrConv("lp", vbFromUnicode))
+ LLVMAddAttribute p0, LLVMNoCaptureAttribute
+ LLVMSetLinkage hFunction, LLVMPrivateLinkage
+ LLVMAddFunctionAttr hFunction, LLVMInlineHintAttribute Or LLVMNoUnwindAttribute
+ m_hFunctionSafeArrayDestructor = hFunction
+ '///
+ LLVMPositionBuilderAtEnd hBuilder, LLVMAppendBasicBlock(hFunction, lp)
+ hBlock(0) = LLVMAppendBasicBlock(hFunction, lp)
+ hBlock(1) = LLVMAppendBasicBlock(hFunction, lp) 'loop for calc element count
+ hBlock(2) = LLVMAppendBasicBlock(hFunction, lp)
+ hBlock(3) = LLVMAppendBasicBlock(hFunction, lp) 'if it's fixed-size array
+ hBlock(4) = LLVMAppendBasicBlock(hFunction, lp) 'if it's dynamic array
+ hBlock(7) = LLVMAppendBasicBlock(hFunction, lp) 'end
+ '///check if input is empty
+ hVariable_m = LLVMBuildAlloca(hBuilder, g_hTypeIntPtr_t, StrPtr("m"))
+ hVariable_i = LLVMBuildAlloca(hBuilder, LLVMInt32Type, StrPtr("i"))
+ hValue_SafeArray = LLVMBuildLoad(hBuilder, p0, lp)
+ LLVMBuildCondBr hBuilder, LLVMBuildIsNull(hBuilder, hValue_SafeArray, lp), hBlock(7), hBlock(0)
+ '///calc element count
+ LLVMPositionBuilderAtEnd hBuilder, hBlock(0)
+ hValue_Pointer = LLVMBuildLoad(hBuilder, LLVMBuildStructGEP(hBuilder, hValue_SafeArray, 4, lp), lp)
+ hValue_Dimension = LLVMBuildZExt(hBuilder, LLVMBuildLoad(hBuilder, LLVMBuildStructGEP(hBuilder, hValue_SafeArray, 0, lp), lp), LLVMInt32Type, lp)
+ hValue_SafeArrayBound = LLVMBuildStructGEP(hBuilder, hValue_SafeArray, 5, lp)
+ LLVMBuildStore hBuilder, LLVMConstNull(LLVMInt32Type), hVariable_i
+ LLVMBuildStore hBuilder, LLVMConstInt(g_hTypeIntPtr_t, 0.0001@, 0), hVariable_m
+ LLVMBuildCondBr hBuilder, _
+ LLVMBuildOr(hBuilder, LLVMBuildIsNull(hBuilder, hValue_Pointer, lp), LLVMBuildIsNull(hBuilder, hValue_Dimension, lp), _
+ lp), hBlock(7), hBlock(1)
+ '///
+ LLVMPositionBuilderAtEnd hBuilder, hBlock(1)
+ hValue = LLVMBuildLoad(hBuilder, hVariable_i, lp)
+ LLVMBuildStore hBuilder, LLVMBuildNUWMul(hBuilder, LLVMBuildZExt(hBuilder, _
+ LLVMBuildLoad(hBuilder, LLVMBuildStructGEP(hBuilder, LLVMBuildGEP(hBuilder, hValue_SafeArrayBound, hValue, 1, lp), 0, lp), lp), g_hTypeIntPtr_t, lp), _
+ LLVMBuildLoad(hBuilder, hVariable_m, lp), _
+ lp), hVariable_m
+ hValue = LLVMBuildAdd(hBuilder, hValue, LLVMConstInt(LLVMInt32Type, 0.0001@, 0), lp)
+ LLVMBuildStore hBuilder, hValue, hVariable_i
+ LLVMBuildCondBr hBuilder, LLVMBuildICmp(hBuilder, LLVMIntULT, hValue, hValue_Dimension, lp), hBlock(1), hBlock(2)
+ '///done, call vector destructor
+ LLVMPositionBuilderAtEnd hBuilder, hBlock(2)
+ hType(0) = LLVMBuildPointerCast(hBuilder, hValue_Pointer, LLVMPointerType(m_hType, 0), lp)
+ hType(1) = LLVMBuildLoad(hBuilder, hVariable_m, lp)
+ LLVMBuildCall hBuilder, GetDefaultVectorDestructorFunction, hType(0), 2, lp
+ 'check if it's dynamic array
+ LLVMBuildCondBr hBuilder, LLVMBuildIsNotNull(hBuilder, LLVMBuildAnd(hBuilder, _
+ LLVMBuildLoad(hBuilder, LLVMBuildStructGEP(hBuilder, hValue_SafeArray, 1, lp), lp), _
+ LLVMConstInt(LLVMInt16Type, 0.0016@, 1), lp), lp), hBlock(3), hBlock(4)
+ '///it's fixed-size array
+ LLVMPositionBuilderAtEnd hBuilder, hBlock(3)
+ hType(0) = LLVMBuildPointerCast(hBuilder, hValue_Pointer, LLVMPointerType(LLVMInt8Type, 0), lp)
+ hType(1) = LLVMConstNull(LLVMInt8Type)
+ hType(2) = LLVMBuildLoad(hBuilder, hVariable_m, lp)
+ hType(3) = LLVMConstNull(LLVMInt32Type)
+ hType(4) = LLVMConstNull(LLVMInt1Type)
+ LLVMBuildCall hBuilder, RuntimeLibraryGetFunction(internal_llvm_memset), hType(0), 5, lp
+ LLVMBuildBr hBuilder, hBlock(7)
+ '///it's dynamic array
+ LLVMPositionBuilderAtEnd hBuilder, hBlock(4)
+ LLVMBuildFree hBuilder, hValue_Pointer
+ LLVMBuildFree hBuilder, hValue_SafeArray
+ LLVMBuildStore hBuilder, LLVMConstPointerNull(LLVMPointerType(g_hTypeSafeArray, 0)), p0
+ LLVMBuildBr hBuilder, hBlock(7)
+ '///over
+ LLVMPositionBuilderAtEnd hBuilder, hBlock(7)
+ LLVMBuildRetVoid hBuilder
+ '///
+ LLVMDisposeBuilder hBuilder
+End If
+GetDefaultSafeArrayDestructorFunction = hFunction
+End Function
+
 Friend Function GetDefaultVectorDestructorFunction() As Long
 Dim hType(3) As Long
 Dim p0 As Long, p1 As Long
@@ -231,7 +341,7 @@ If hFunction = 0 Then
  hBuilder = LLVMCreateBuilder
  '///
  hType(0) = LLVMPointerType(m_hType, 0)
- hType(1) = g_objIntrinsicDataTypes(vbIntPtr_t).Handle
+ hType(1) = g_hTypeIntPtr_t
  hFunctionType = LLVMFunctionType(LLVMVoidType, hType(0), 2, 0)
  hFunction = LLVMAddFunction(g_hModule, StrPtr(StrConv("YAFB.VectorDestructor." + m_t.sValue + ".i" + CStr(g_nWordSize * 8&), vbFromUnicode)), hFunctionType)
  p0 = LLVMGetParam(hFunction, 0)

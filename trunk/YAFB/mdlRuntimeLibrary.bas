@@ -20,6 +20,8 @@ Public g_hTypeSafeArray As Long
 Public g_hTypeSafeArrayBound As Long
 Public g_hTypeDecimal As Long
 
+Public g_hTypeIntPtr_t As Long
+
 '================================ YAFB Extensions ================================
 
 '/*
@@ -147,6 +149,11 @@ Public Const vbUIntPtr_t As Long = 38
 Public Const vbLongLongLong As Long = &HC0&
 Public Const vbUnsignedLongLongLong As Long = &HC1&
 
+Public Const FADF_AUTO As Long = &H1     '// Array is allocated on the stack.
+Public Const FADF_STATIC As Long = &H2     '// Array is statically allocated.
+Public Const FADF_EMBEDDED As Long = &H4     '// Array is embedded in a structure.
+Public Const FADF_FIXEDSIZE As Long = &H10    '// Array may not be resized or reallocated.
+
 Public Sub SetupRuntimeLibrary()
 Dim i(7) As Long
 '////////setup default (and extension) types
@@ -189,18 +196,20 @@ End With
 '///intptr_t
 Select Case g_nWordSize
 Case 4
+ g_hTypeIntPtr_t = LLVMInt32Type
  With New clsTypeNode
-  .SetIntrinsic vbIntPtr_t, "IntPtr_t", LLVMInt32Type, 4, &H71
+  .SetIntrinsic vbIntPtr_t, "IntPtr_t", g_hTypeIntPtr_t, 4, &H71
  End With
  With New clsTypeNode
-  .SetIntrinsic vbUIntPtr_t, "UIntPtr_t", LLVMInt32Type, 4, &H72
+  .SetIntrinsic vbUIntPtr_t, "UIntPtr_t", g_hTypeIntPtr_t, 4, &H72
  End With
 Case 8
+ g_hTypeIntPtr_t = LLVMInt64Type
  With New clsTypeNode
-  .SetIntrinsic vbIntPtr_t, "IntPtr_t", LLVMInt64Type, 8, &H71
+  .SetIntrinsic vbIntPtr_t, "IntPtr_t", g_hTypeIntPtr_t, 8, &H71
  End With
  With New clsTypeNode
-  .SetIntrinsic vbUIntPtr_t, "UIntPtr_t", LLVMInt64Type, 8, &H72
+  .SetIntrinsic vbUIntPtr_t, "UIntPtr_t", g_hTypeIntPtr_t, 8, &H72
  End With
 Case Else
  PrintPanic "Unknown word size: " + CStr(g_nWordSize), -1, -1
@@ -315,7 +324,7 @@ If hFunction = 0 Then
  Case internal_memcpy
   hType(0) = LLVMPointerType(LLVMInt8Type, 0)
   hType(1) = hType(0)
-  hType(2) = g_objIntrinsicDataTypes(vbIntPtr_t).Handle
+  hType(2) = g_hTypeIntPtr_t
   hFunctionType = LLVMFunctionType(LLVMVoidType, hType(0), 3, 0)
   hFunction = LLVMAddFunction(g_hModule, StrPtr(StrConv("memcpy", vbFromUnicode)), hFunctionType)
   LLVMAddAttribute LLVMGetParam(hFunction, 0), LLVMNoCaptureAttribute
@@ -325,7 +334,7 @@ If hFunction = 0 Then
  Case internal_memmove
   hType(0) = LLVMPointerType(LLVMInt8Type, 0)
   hType(1) = hType(0)
-  hType(2) = g_objIntrinsicDataTypes(vbIntPtr_t).Handle
+  hType(2) = g_hTypeIntPtr_t
   hFunctionType = LLVMFunctionType(LLVMVoidType, hType(0), 3, 0)
   hFunction = LLVMAddFunction(g_hModule, StrPtr(StrConv("memmove", vbFromUnicode)), hFunctionType)
   LLVMAddAttribute LLVMGetParam(hFunction, 0), LLVMNoCaptureAttribute
@@ -335,7 +344,7 @@ If hFunction = 0 Then
  Case internal_memset
   hType(0) = LLVMPointerType(LLVMInt8Type, 0)
   hType(1) = LLVMInt32Type
-  hType(2) = g_objIntrinsicDataTypes(vbIntPtr_t).Handle
+  hType(2) = g_hTypeIntPtr_t
   hFunctionType = LLVMFunctionType(LLVMVoidType, hType(0), 3, 0)
   hFunction = LLVMAddFunction(g_hModule, StrPtr(StrConv("memset", vbFromUnicode)), hFunctionType)
   LLVMAddAttribute LLVMGetParam(hFunction, 0), LLVMNoCaptureAttribute
@@ -344,7 +353,7 @@ If hFunction = 0 Then
  Case internal_llvm_memcpy
   hType(0) = LLVMPointerType(LLVMInt8Type, 0)
   hType(1) = hType(0)
-  hType(2) = g_objIntrinsicDataTypes(vbIntPtr_t).Handle
+  hType(2) = g_hTypeIntPtr_t
   hType(3) = LLVMInt32Type
   hType(4) = LLVMInt1Type
   hFunctionType = LLVMFunctionType(LLVMVoidType, hType(0), 5, 0)
@@ -356,7 +365,7 @@ If hFunction = 0 Then
  Case internal_llvm_memmove
   hType(0) = LLVMPointerType(LLVMInt8Type, 0)
   hType(1) = hType(0)
-  hType(2) = g_objIntrinsicDataTypes(vbIntPtr_t).Handle
+  hType(2) = g_hTypeIntPtr_t
   hType(3) = LLVMInt32Type
   hType(4) = LLVMInt1Type
   hFunctionType = LLVMFunctionType(LLVMVoidType, hType(0), 5, 0)
@@ -368,7 +377,7 @@ If hFunction = 0 Then
  Case internal_llvm_memset
   hType(0) = LLVMPointerType(LLVMInt8Type, 0)
   hType(1) = LLVMInt8Type
-  hType(2) = g_objIntrinsicDataTypes(vbIntPtr_t).Handle
+  hType(2) = g_hTypeIntPtr_t
   hType(3) = LLVMInt32Type
   hType(4) = LLVMInt1Type
   hFunctionType = LLVMFunctionType(LLVMVoidType, hType(0), 5, 0)

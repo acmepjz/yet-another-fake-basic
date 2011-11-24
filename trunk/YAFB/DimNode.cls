@@ -146,7 +146,8 @@ Case 0 'dim
      LLVMBuildFree g_hBuilder, m_hVariable
     End If
    Else 'dynamic array
-    'TODO:
+    h(0) = m_hVariable
+    LLVMBuildCall g_hBuilder, m_objDataType.GetDataType.GetDefaultSafeArrayDestructorFunction, h(0), 1, StrPtr(vbNullChar)
    End If
   Else
    'TODO:etc.
@@ -226,7 +227,7 @@ Case 0 'dim
     'Else 'so we should call 'memset' instead...
      h(0) = LLVMBuildPointerCast(g_hBuilder, m_hVariable, LLVMPointerType(LLVMInt8Type, 0), ByVal StrPtr(StrConv("ByRefTemp", vbFromUnicode)))
      h(1) = LLVMConstNull(LLVMInt8Type)
-     h(2) = LLVMBuildIntCast(g_hBuilder, LLVMSizeOf(m_hType), g_objIntrinsicDataTypes(vbIntPtr_t).Handle, ByVal StrPtr(StrConv("SizeTemp", vbFromUnicode)))
+     h(2) = LLVMBuildIntCast(g_hBuilder, LLVMSizeOf(m_hType), g_hTypeIntPtr_t, ByVal StrPtr(StrConv("SizeTemp", vbFromUnicode)))
      h(3) = LLVMConstNull(LLVMInt32Type) 'align=unknown
      h(4) = LLVMConstNull(LLVMInt1Type) 'isVolatile=False
      LLVMBuildCall g_hBuilder, RuntimeLibraryGetFunction(internal_llvm_memset), h(0), 5, StrPtr(vbNullChar)
@@ -306,12 +307,13 @@ If m_nDimemsionCount > 0 Then 'fixed-size array
  '///then memset
  h(0) = LLVMBuildPointerCast(g_hBuilder, m_hVariable, LLVMPointerType(LLVMInt8Type, 0), ByVal StrPtr(StrConv("ByRefTemp", vbFromUnicode)))
  h(1) = LLVMConstNull(LLVMInt8Type)
- h(2) = LLVMBuildIntCast(g_hBuilder, LLVMSizeOf(m_hType), g_objIntrinsicDataTypes(vbIntPtr_t).Handle, ByVal StrPtr(StrConv("SizeTemp", vbFromUnicode)))
+ h(2) = LLVMBuildIntCast(g_hBuilder, LLVMSizeOf(m_hType), g_hTypeIntPtr_t, ByVal StrPtr(StrConv("SizeTemp", vbFromUnicode)))
  h(3) = LLVMConstNull(LLVMInt32Type) 'align=unknown
  h(4) = LLVMConstNull(LLVMInt1Type) 'isVolatile=False
  LLVMBuildCall g_hBuilder, RuntimeLibraryGetFunction(internal_llvm_memset), h(0), 5, StrPtr(vbNullChar)
 Else 'dynamic array
- 'TODO:
+ h(0) = m_hVariable
+ LLVMBuildCall g_hBuilder, m_objDataType.GetDataType.GetDefaultSafeArrayDestructorFunction, h(0), 1, StrPtr(vbNullChar)
 End If
 End Sub
 
@@ -458,8 +460,8 @@ Case 0 'dim
   '///array dimension
   If m_nType And &H400& Then
    If m_nDimemsionCount = 0 Then
-    PrintError "Currently dynamic array is unsupported", -1, -1
-    Exit Function
+'    PrintError "Currently dynamic array is unsupported", -1, -1
+'    Exit Function
    ElseIf m_nDimemsionCount >= 65536 Then
     PrintError "Array dimension must be smaller than 65536", -1, -1
     Exit Function
@@ -547,7 +549,7 @@ Case 0 'dim
     End If
     '///save array size
     m_nArrayElementCount = nArrayElementCount
-    m_hConst_ArrayElementCount = LLVMConstInt(g_objIntrinsicDataTypes(vbIntPtr_t).Handle, nArrayElementCount, 0)
+    m_hConst_ArrayElementCount = LLVMConstInt(g_hTypeIntPtr_t, nArrayElementCount, 0)
    End If
    '///
   End If
