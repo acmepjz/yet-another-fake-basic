@@ -74,9 +74,9 @@ If nLine = 0 Then
 End If
 If nLine > 0 Then
  If nColumn > 0 Then
-  s = "(" + CStr(nLine) + "," + CStr(nColumn) + ") Error: " + s + vbCrLf
+  s = "(" + CStr(nLine) + "," + CStr(nColumn) + ") Panic: " + s + vbCrLf
  Else
-  s = "(" + CStr(nLine) + ") Error: " + s + vbCrLf
+  s = "(" + CStr(nLine) + ") Panic: " + s + vbCrLf
  End If
 Else
  s = "Panic: " + s + vbCrLf
@@ -90,7 +90,7 @@ DebugBreak
 FatalAppExit &HDEADBEEF, s
 FatalExit &HDEADBEEF
 CopyMemory ByVal &HDEADBEEF, ByVal &HDEADBEEF, &HDEADBEEF
-ZeroMemory ByVal VarPtr(nLine) - 65536, 1048576
+ZeroMemory ByVal VarPtr(nLine) - 4096, 8192
 End
 End
 End

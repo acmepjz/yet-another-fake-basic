@@ -323,6 +323,10 @@ Dim objType As clsTypeNode, nFlags As Long
 Dim objDim As DimNode
 '///
 Select Case m_nType And &HF&
+Case 1 'redim
+ 'TODO:
+Case 2 'redim preserve
+ 'TODO:
 Case 3 'erase
  '///check type
  Set obj = m_objVariable

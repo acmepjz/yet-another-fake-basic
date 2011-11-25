@@ -349,6 +349,8 @@ Dim nArgCount As Long
 Dim objSrcType As clsTypeNode, nSrcFlags As Long
 Dim objDestType As clsTypeNode, nDestFlags As Long
 Dim h As Long, i As Long, j As Long, m As Long
+Dim hValue_SafeArray As Long
+Dim hValue_SafeArrayBound As Long
 Dim d(3) As Long
 Dim nTag As Long
 '///
@@ -359,6 +361,7 @@ If Not m_objVariable Is Nothing Then
  Case 0 'dim
   If m_objVariable.DimType And &H400& Then 'array
    If m_objVariable.DimensionCount > 0 Then 'fixed-size array
+    'TODO: subscript out of range check, etc.
     h = LLVMConstInt(g_hTypeIntPtr_t, 0@, 1)
     For i = m_objVariable.DimensionCount To 1 Step -1
      Set obj = m_objArgList(1).ArgumentNode(i)
@@ -384,9 +387,46 @@ If Not m_objVariable Is Nothing Then
     d(1) = h
     'InBounds: no subscript out of range is allowed (?)
     h = LLVMBuildInBoundsGEP(g_hBuilder, m_objVariable.VariableHandle, d(0), 2, StrPtr(StrConv("ArrayTemp", vbFromUnicode)))
-   Else
-    'TODO:
-    PrintPanic "Currently dynamic array is unsupported", -1, -1
+   Else 'dynamic array
+    'TODO: subscript out of range check, etc.
+    hValue_SafeArray = LLVMBuildLoad(g_hBuilder, m_objVariable.VariableHandle, StrPtr(StrConv("pSA", vbFromUnicode)))
+    hValue_SafeArrayBound = LLVMBuildStructGEP(g_hBuilder, hValue_SafeArray, 5, StrPtr(StrConv("Bounds", vbFromUnicode)))
+    '///
+    h = LLVMConstInt(g_hTypeIntPtr_t, 0@, 1)
+    m = m_objArgList(1).ArgumentCount
+    d(1) = LLVMConstInt(LLVMInt32Type, 0.0001@, 0) 'lLbound
+    d(3) = LLVMConstNull(LLVMInt32Type) 'cElements
+    For i = m To 1 Step -1
+     Set obj = m_objArgList(1).ArgumentNode(i)
+     Set objSrcType = obj.GetType(nSrcFlags)
+     '///
+     h = LLVMBuildAdd(g_hBuilder, h, _
+     g_objTypeMgr.CodegenTypeConversion(objContext, _
+     obj.Codegen(objContext, 0, 0, 0, 0), objSrcType, nSrcFlags, g_objIntrinsicDataTypes(vbIntPtr_t), 0, False), _
+     StrPtr(StrConv("ArrayTemp", vbFromUnicode)))
+     '///
+     d(0) = LLVMConstInt(LLVMInt32Type, (m - i) * 0.0001@, 0)
+     h = LLVMBuildSub(g_hBuilder, h, LLVMBuildSExt(g_hBuilder, _
+     LLVMBuildLoad(g_hBuilder, LLVMBuildInBoundsGEP(g_hBuilder, _
+     hValue_SafeArrayBound, d(0), 2, StrPtr(vbNullChar)), StrPtr(StrConv("lLBound", vbFromUnicode))), _
+     g_hTypeIntPtr_t, StrPtr(vbNullChar)), StrPtr(StrConv("ArrayTemp", vbFromUnicode)))
+     '///
+     If i > 1 Then
+      d(2) = LLVMConstInt(LLVMInt32Type, (m - i + 1) * 0.0001@, 0)
+      h = LLVMBuildMul(g_hBuilder, h, LLVMBuildSExt(g_hBuilder, _
+      LLVMBuildLoad(g_hBuilder, LLVMBuildInBoundsGEP(g_hBuilder, _
+      hValue_SafeArrayBound, d(2), 2, StrPtr(vbNullChar)), StrPtr(StrConv("cElements", vbFromUnicode))), _
+      g_hTypeIntPtr_t, StrPtr(vbNullChar)), StrPtr(StrConv("ArrayTemp", vbFromUnicode)))
+     End If
+    Next i
+    '///
+    d(0) = h
+    '///
+    h = LLVMBuildPointerCast(g_hBuilder, LLVMBuildLoad(g_hBuilder, _
+    LLVMBuildStructGEP(g_hBuilder, hValue_SafeArray, 4, StrPtr(vbNullChar)), _
+    StrPtr(StrConv("pvData", vbFromUnicode))), LLVMPointerType(m_objVariable.DataType.GetDataType.Handle, 0), StrPtr(vbNullChar))
+    'InBounds: no subscript out of range is allowed (?)
+    h = LLVMBuildInBoundsGEP(g_hBuilder, h, d(0), 1, StrPtr(StrConv("ArrayTemp", vbFromUnicode)))
    End If
   Else
    h = m_objVariable.VariableHandle
