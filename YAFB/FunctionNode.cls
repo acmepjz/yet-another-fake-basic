@@ -65,14 +65,20 @@ Case prop_endblockhandle
 End Select
 End Function
 
-'Friend Function GetNewVariable(ByVal objContext As clsVerifyContext, ByVal objType As clsTypeNode, ByVal sName As String) As Long
-'Dim hBuilder As Long
-''///
-'hBuilder = LLVMCreateBuilder
-'LLVMPositionBuilderAtEnd hBuilder, m_hFunctionVariableBlock
-'GetNewVariable = LLVMBuildAlloca(hBuilder, objType.Handle, StrPtr(StrConv(sName, vbFromUnicode)))
-'LLVMDisposeBuilder hBuilder
-'End Function
+Friend Function GetNewVariableEx(ByVal hType As Long, Optional ByVal sName As String, Optional ByVal hBuilder As Long) As Long
+Dim b As Boolean
+'///
+If sName = vbNullString Then sName = vbNullChar
+If hBuilder = 0 Then
+ b = True
+ hBuilder = LLVMCreateBuilder
+End If
+'///
+LLVMPositionBuilderAtEnd hBuilder, m_hFunctionVariableBlock
+GetNewVariableEx = LLVMBuildAlloca(hBuilder, hType, StrPtr(StrConv(sName, vbFromUnicode)))
+'///
+If b Then LLVMDisposeBuilder hBuilder
+End Function
 
 Friend Function GetTempVariable(ByVal objContext As clsVerifyContext, ByVal objType As clsTypeNode, ByVal nTag As Long) As Long
 Dim hBuilder As Long

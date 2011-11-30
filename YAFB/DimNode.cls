@@ -52,12 +52,80 @@ Private m_objVariable As VariableNode 'optional (??) only when 'redim', 'redim p
 Private m_hType As Long 'not exactly
 Private m_hVariable As Long
 
+Private m_hVariableSafeArray As Long 'only when this is a fixed-size array and on-demand
+
 Private m_hConst As Long
 
 Private m_nArrayElementCount As Currency
 Private m_hConst_ArrayElementCount As Long
 
 Private m_bArrayInHeap As Boolean
+
+'return value is SafeArray**
+Friend Function RequestSafeArray(ByVal objContext As clsVerifyContext) As Long
+Dim hBuilder As Long
+Dim hType As Long
+Dim hVariable As Long 'tSA
+Dim hVariable2 As Long 'pSA
+Dim hValue As Long
+Dim m As Long
+Dim i(7) As Long, idx As Long
+'///
+Select Case m_nType And &HF&
+Case 0 'dim
+ If m_nType And &H400& Then
+  If m_nDimemsionCount = 0 Then
+   RequestSafeArray = m_hVariable
+  Else
+   If m_hVariableSafeArray = 0 Then
+    '///calc size
+    m = CLng(LLVMABISizeOfType(g_hTargetData, g_hTypeSafeArray) * 10000@) + (m_nDimemsionCount - 1) * 8&
+    hType = LLVMArrayType(LLVMInt8Type, m)
+    '///get new variable
+'    If Not objContext.CurrentFunction Is Nothing Then 'local
+    hBuilder = LLVMCreateBuilder
+    '///
+    hVariable = objContext.CurrentFunction.GetNewVariableEx(hType, , hBuilder)
+    i(0) = LLVMPointerType(g_hTypeSafeArray, 0)
+    hVariable = LLVMBuildPointerCast(hBuilder, hVariable, i(0), StrPtr(StrConv("tSA_" + m_t.sValue, vbFromUnicode)))
+    hVariable2 = objContext.CurrentFunction.GetNewVariableEx(i(0), "pSA_" + m_t.sValue, hBuilder)
+    '///
+    i(0) = LLVMConstInt(LLVMInt16Type, m_nDimemsionCount * 0.0001@, 0) 'cDims
+    i(1) = LLVMConstInt(LLVMInt16Type, 0.0016@, 0) 'fFeatures (FADF_FIXEDSIZE)
+    i(2) = LLVMConstInt(LLVMInt32Type, m_objDataType.GetDataType.Size, 0) 'cbElements
+    i(3) = LLVMConstNull(LLVMInt32Type) 'cLocks
+    i(4) = LLVMConstNull(LLVMPointerType(LLVMInt8Type, 0)) 'pvData :-3
+    i(6) = LLVMConstInt(LLVMInt32Type, m_nArrayDimSize(m_nDimemsionCount), 0) 'Bounds(0).cElements
+    i(7) = m_objDimension(0, m_nDimemsionCount).GetProperty(action_const_codegen) 'Bounds(0).lLbound
+    i(5) = LLVMConstStruct(i(6), 2, 0)
+    hValue = LLVMConstStruct(i(0), 6, 0)
+    LLVMBuildStore hBuilder, hValue, hVariable
+    '///fill other dimensions
+    i(0) = LLVMBuildStructGEP(hBuilder, hVariable, 5, StrPtr(StrConv("Bounds", vbFromUnicode)))
+    For idx = m_nDimemsionCount - 1 To 1 Step -1
+     i(1) = m_nDimemsionCount - idx
+     hValue = LLVMBuildInBoundsGEP(hBuilder, i(0), i(1), 1, StrPtr(StrConv("Bounds_" + CStr(i(1)), vbFromUnicode)))
+     i(6) = LLVMConstInt(LLVMInt32Type, m_nArrayDimSize(idx), 0) 'Bounds(x).cElements
+     i(7) = m_objDimension(0, idx).GetProperty(action_const_codegen) 'Bounds(x).lLbound
+     i(5) = LLVMConstStruct(i(6), 2, 0)
+     LLVMBuildStore hBuilder, i(5), hValue
+    Next idx
+    '///over
+    LLVMBuildStore hBuilder, hVariable, hVariable2
+    m_hVariableSafeArray = hVariable2
+    '///
+    LLVMDisposeBuilder hBuilder
+'    Else 'global
+'     'wrong code :-3
+'    End If
+   End If
+   RequestSafeArray = m_hVariableSafeArray
+  End If
+ Else
+  'TODO: if it's Variant then still possible
+ End If
+End Select
+End Function
 
 Friend Property Get VariableObject() As VariableNode
 Set VariableObject = m_objVariable

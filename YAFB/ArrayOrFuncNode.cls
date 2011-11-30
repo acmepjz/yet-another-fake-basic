@@ -272,7 +272,7 @@ Case verify_all
      End If
     Else
      Set objSrcType = obj.GetType(nSrcFlags)
-     Set obj1 = objArgDeclareList.ArgumentDeclaration(i).DataType
+     Set obj1 = objArgDeclareList.ArgumentDeclaration(i) '.DataType '??? FIXME:
      Set objDestType = obj1.GetType(nDestFlags)
      If g_objTypeMgr.CheckTypeConversion(objSrcType, nSrcFlags, objDestType, nDestFlags) = 0 Then
       PrintError "Argument " + CStr(i) + " of function '" + m_t.sValue + "' type mismatch: trying convert '" + _
@@ -476,7 +476,7 @@ If Not m_objFunction Is Nothing Then
    End If
    '///
    Set objSrcType = obj.GetType(nSrcFlags)
-   Set obj1 = objArgDeclareList.ArgumentDeclaration(i).DataType
+   Set obj1 = objArgDeclareList.ArgumentDeclaration(i) '.DataType '??? FIXME:
    Set objDestType = obj1.GetType(nDestFlags)
    '///
    If (objArgDeclareList.ArgumentFlags(i) And 1&) = 0 Then 'declaration is ByRef xxx
