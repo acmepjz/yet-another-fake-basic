@@ -21,7 +21,7 @@ Private Declare Sub CopyMemory Lib "kernel32.dll" Alias "RtlMoveMemory" (ByRef D
 Friend Function CheckTypeConversion(ByVal objSrcType As clsTypeNode, ByVal nSrcFlags As Long, ByVal objDestType As clsTypeNode, ByVal nDestFlags As Long) As Long
 Dim nSrcType As VbVarType
 Dim nDestType As VbVarType
-'///TODO:array conversion
+'///array conversion. TODO:
 If nSrcFlags Then Exit Function
 If nDestFlags Then Exit Function
 '///
